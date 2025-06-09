@@ -3,6 +3,7 @@ const express = require('express');
 const userRoutes = require('./routes/userRoutes');
 const productRoutes = require('./routes/productRoutes');
 const blogRoutes = require('./routes/blogRoutes');
+const cartLocationRoutes = require('./routes/cartLocationRoutes');
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.get('/', (req, res) => {
 app.use('/users', userRoutes);
 app.use('/products', productRoutes);
 app.use('/blogs', blogRoutes);
+app.use('/cart-location', cartLocationRoutes);
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;
