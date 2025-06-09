@@ -8,6 +8,7 @@ const Contact = require('./Contact');
 const Newsletter = require('./Newsletter');
 const Orders = require('./Orders');
 const Location = require('./Location');
+const Wishlist = require('./Wishlist');
 
 // Synchronisation des modèles avec la base de données
 sequelize.sync()
@@ -22,6 +23,7 @@ sequelize.sync()
         console.log('Modèle Newsletter synchronisé.');
         console.log('Modèle Orders synchronisé.');
         console.log('Modèle Location synchronisé.');
+        console.log('Modèle Wishlist synchronisé.');
     })
     .catch(err => console.error('Erreur lors de la synchronisation des modèles :', err));
 
