@@ -8,6 +8,7 @@ const contactRoutes = require('./routes/contactRoutes');
 const newsletterRoutes = require('./routes/newsletterRoutes');
 const ordersRoutes = require('./routes/ordersRoutes');
 const locationRoutes = require('./routes/locationRoutes');
+const wishlistRoutes = require('./routes/wishlistRoutes');
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/contact', contactRoutes);
 app.use('/newsletter', newsletterRoutes);
 app.use('/orders', ordersRoutes);
 app.use('/locations', locationRoutes);
+app.use('/wishlist', wishlistRoutes);
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;
