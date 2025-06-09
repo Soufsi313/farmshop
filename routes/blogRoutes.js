@@ -1,10 +1,11 @@
 const express = require('express');
 const blogController = require('../controllers/blogController');
+const lusca = require('lusca');
 
 const router = express.Router();
 
 // Créer un article de blog (admin uniquement)
-router.post('/create', async (req, res) => {
+router.post('/create', lusca.csrf(), async (req, res) => {
     try {
         const user = req.body.user; // L'utilisateur doit être passé dans le body ou via un middleware d'authentification
         const blog = await blogController.createBlog(user, req.body.blogData);
@@ -35,7 +36,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Gérer les signalements de commentaires (admin uniquement)
-router.post('/handle-report', async (req, res) => {
+router.post('/handle-report', lusca.csrf(), async (req, res) => {
     try {
         const { user, commentId, action } = req.body;
         await blogController.handleReportedComment(user, commentId, action);

@@ -1,10 +1,11 @@
 const express = require('express');
 const productController = require('../controllers/productController');
+const lusca = require('lusca');
 
 const router = express.Router();
 
 // Ajouter un produit
-router.post('/add', async (req, res) => {
+router.post('/add', lusca.csrf(), async (req, res) => {
     try {
         await productController.addProduct(req.body);
         res.status(201).send('Produit ajouté avec succès.');
@@ -36,7 +37,7 @@ router.get('/search', async (req, res) => {
 });
 
 // Ajouter à la liste de souhaits
-router.post('/wishlist', async (req, res) => {
+router.post('/wishlist', lusca.csrf(), async (req, res) => {
     try {
         const { userId, productId } = req.body;
         await productController.addToWishlist(userId, productId);
@@ -47,7 +48,7 @@ router.post('/wishlist', async (req, res) => {
 });
 
 // Liker et partager un produit
-router.post('/like-share', async (req, res) => {
+router.post('/like-share', lusca.csrf(), async (req, res) => {
     try {
         const { productId, userId } = req.body;
         await productController.likeAndShareProduct(productId, userId);

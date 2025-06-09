@@ -9,11 +9,14 @@ const newsletterRoutes = require('./routes/newsletterRoutes');
 const ordersRoutes = require('./routes/ordersRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const wishlistRoutes = require('./routes/wishlistRoutes');
+const cookiesRoutes = require('./routes/cookiesRoutes');
+const securityMiddleware = require('./config/securityMiddleware');
 
 const app = express();
 
 // Middleware pour gérer les requêtes JSON
 app.use(express.json());
+app.use(securityMiddleware);
 
 // Route de base
 app.get('/', (req, res) => {
@@ -30,6 +33,7 @@ app.use('/newsletter', newsletterRoutes);
 app.use('/orders', ordersRoutes);
 app.use('/locations', locationRoutes);
 app.use('/wishlist', wishlistRoutes);
+app.use('/cookies', cookiesRoutes);
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;

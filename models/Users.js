@@ -19,8 +19,22 @@ const User = sequelize.define('User', {
         type: DataTypes.ENUM('Admin', 'User'),
         allowNull: false,
     },
+    isSubscribedToNewsletter: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
+    isSoftDeleted: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
 }, {
     timestamps: true,
+    paranoid: true, // Enables soft delete
 });
+
+User.prototype.downloadData = function() {
+    // Logic to download user data
+    console.log(`Downloading data for user: ${this.username}`);
+};
 
 module.exports = User;

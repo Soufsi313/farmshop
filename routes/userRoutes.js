@@ -1,10 +1,11 @@
 const express = require('express');
 const userController = require('../controllers/userController');
+const lusca = require('lusca');
 
 const router = express.Router();
 
 // Routes pour le modèle User
-router.post('/subscribe-newsletter/:userId', async (req, res) => {
+router.post('/subscribe-newsletter/:userId', lusca.csrf(), async (req, res) => {
     try {
         await userController.subscribeToNewsletter(req.params.userId);
         res.status(200).send('Abonnement à la newsletter réussi.');
@@ -13,7 +14,7 @@ router.post('/subscribe-newsletter/:userId', async (req, res) => {
     }
 });
 
-router.post('/unsubscribe-newsletter/:userId', async (req, res) => {
+router.post('/unsubscribe-newsletter/:userId', lusca.csrf(), async (req, res) => {
     try {
         await userController.unsubscribeFromNewsletter(req.params.userId);
         res.status(200).send('Désabonnement de la newsletter réussi.');
@@ -22,7 +23,7 @@ router.post('/unsubscribe-newsletter/:userId', async (req, res) => {
     }
 });
 
-router.delete('/soft-delete-account/:userId', async (req, res) => {
+router.delete('/soft-delete-account/:userId', lusca.csrf(), async (req, res) => {
     try {
         await userController.softDeleteAccount(req.params.userId);
         res.status(200).send('Compte supprimé de manière douce.');
@@ -40,7 +41,7 @@ router.get('/download-data/:userId', async (req, res) => {
     }
 });
 
-router.post('/contact-admin/:userId', async (req, res) => {
+router.post('/contact-admin/:userId', lusca.csrf(), async (req, res) => {
     try {
         await userController.contactAdmin(req.params.userId, req.body.message);
         res.status(200).send('Message envoyé à l’administrateur.');
