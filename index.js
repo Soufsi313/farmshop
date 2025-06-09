@@ -2,6 +2,7 @@
 const express = require('express');
 const userRoutes = require('./routes/userRoutes');
 const productRoutes = require('./routes/productRoutes');
+const blogRoutes = require('./routes/blogRoutes');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get('/', (req, res) => {
 // Utilisation des routes
 app.use('/users', userRoutes);
 app.use('/products', productRoutes);
+app.use('/blogs', blogRoutes);
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;
