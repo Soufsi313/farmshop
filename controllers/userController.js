@@ -100,6 +100,49 @@ const userController = {
     deleteCategory: async () => {
         throw new Error('Permission refusée : Les utilisateurs ne peuvent pas supprimer les catégories.');
     },
+
+    // Récupérer tous les utilisateurs actifs (non supprimés)
+    getAllActiveUsers: async (page = 1, limit = 10) => {
+        const offset = (page - 1) * limit;
+        const { count, rows } = await User.findAndCountAll({
+            where: {
+                deletedAt: null
+            },
+            order: [['createdAt', 'DESC']],
+            offset,
+            limit
+        });
+        return { users: rows, total: count };
+    },
+
+    // Suppression d'un utilisateur (admin only, pas d'auto-suppression, impossible de supprimer un admin)
+    deleteUser: async (adminId, userId) => {
+        if (parseInt(adminId) === parseInt(userId)) {
+            throw new Error('Vous ne pouvez pas vous auto-supprimer.');
+        }
+        const user = await User.findByPk(userId);
+        if (!user) throw new Error('Utilisateur non trouvé');
+        if (user.role === 'Admin') {
+            throw new Error('Impossible de supprimer un administrateur. Rétrogradez-le en User d’abord.');
+        }
+        await user.destroy();
+        return true;
+    },
+
+    // Modification du rôle d'un utilisateur (admin only, pas pour soi-même)
+    updateUserRole: async (adminId, userId, newRole) => {
+        if (parseInt(adminId) === parseInt(userId)) {
+            throw new Error('Vous ne pouvez pas modifier votre propre rôle.');
+        }
+        const user = await User.findByPk(userId);
+        if (!user) throw new Error('Utilisateur non trouvé');
+        if (!['Admin', 'User'].includes(newRole)) {
+            throw new Error('Rôle invalide.');
+        }
+        user.role = newRole;
+        await user.save();
+        return user;
+    },
 };
 
 module.exports = userController;

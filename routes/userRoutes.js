@@ -111,4 +111,41 @@ router.get('/verify-email', async (req, res) => {
     }
 });
 
+// Route GET pour récupérer les utilisateurs actifs (admin uniquement, avec pagination)
+router.get('/active', auth.authenticateJWT, auth.requireAdmin, async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    try {
+        const { users, total } = await userController.getAllActiveUsers(page, limit);
+        res.json({ users, total });
+    } catch (err) {
+        res.status(500).json({ message: 'Erreur serveur.' });
+    }
+});
+
+// Suppression d'un utilisateur (admin only, pas d'auto-suppression, pas de suppression d'admin)
+router.delete('/:userId', auth.authenticateJWT, auth.requireAdmin, lusca.csrf(), async (req, res) => {
+    try {
+        const adminId = req.user.id;
+        const userId = req.params.userId;
+        await userController.deleteUser(adminId, userId);
+        res.status(200).json({ message: 'Utilisateur supprimé.' });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// Modification du rôle d'un utilisateur (admin only, pas pour soi-même, pas pour un autre admin)
+router.patch('/:userId/role', auth.authenticateJWT, auth.requireAdmin, lusca.csrf(), async (req, res) => {
+    try {
+        const adminId = req.user.id;
+        const userId = req.params.userId;
+        const { newRole } = req.body;
+        const user = await userController.updateUserRole(adminId, userId, newRole);
+        res.status(200).json({ message: 'Rôle modifié.', user });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
 module.exports = router;
