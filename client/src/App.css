@@ -1,4 +1,12 @@
+body {
+  background: #f8fff5;
+  color: #222;
+  font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+}
+
 .App {
+  min-height: 100vh;
+  background: #f8fff5;
   text-align: center;
 }
 
@@ -26,6 +34,65 @@
 
 .App-link {
   color: #61dafb;
+}
+
+/* Navbar styles */
+.navbar {
+  background: #fff !important;
+  border-bottom: 2px solid #e6f4e6;
+}
+
+.navbar-brand, .nav-link.active {
+  color: #198754 !important;
+}
+
+.navbar .nav-link {
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.navbar .navbar-brand {
+  font-size: 1.5rem;
+}
+
+.nav-link {
+  color: #222 !important;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: #198754 !important;
+}
+
+/* Button styles */
+.btn-success, .bg-success {
+  background-color: #198754 !important;
+  border-color: #198754 !important;
+}
+
+.btn-success:hover {
+  background-color: #146c43 !important;
+  border-color: #146c43 !important;
+}
+
+/* Headings */
+.display-4, h1, h2, h3, h4, h5, h6 {
+  color: #198754;
+}
+
+/* Card styles */
+.card {
+  border: none;
+  box-shadow: 0 2px 8px rgba(25, 135, 84, 0.08);
+}
+
+/* Accent for links and buttons */
+a, .App-link {
+  color: #198754;
+}
+
+a:hover {
+  color: #146c43;
 }
 
 @keyframes App-logo-spin {
