@@ -75,6 +75,13 @@ function Navbar() {
                     <FaShoppingCart className="me-1 mb-1" /> Mes locations
                   </NavLink>
                 </li>
+                {user && user.role === 'Admin' && (
+                  <li className="nav-item">
+                    <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/admin" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222', fontWeight: 500 })}>
+                      <FaUser className="me-1 mb-1" /> Panel Admin
+                    </NavLink>
+                  </li>
+                )}
               </>
             )}
             <li className="nav-item">
