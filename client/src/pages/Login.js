@@ -1,23 +1,42 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function Login() {
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
-    // Ici tu pourras ajouter la logique d'appel API
     if (!form.username || !form.password) {
       setError('Tous les champs sont obligatoires.');
       return;
     }
     setError('');
-    // ... appel API ...
+    // Appel API pour login (exemple simplifié)
+    try {
+      // Remplace l'URL par celle de ton backend
+      const res = await fetch('http://localhost:3000/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        navigate('/');
+        window.location.reload(); // recharge la navbar
+      } else {
+        setError(data.message || 'Identifiants invalides');
+      }
+    } catch (err) {
+      setError('Erreur serveur');
+    }
   };
 
   return (
