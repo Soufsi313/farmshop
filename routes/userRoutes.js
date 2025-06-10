@@ -1,8 +1,26 @@
 const express = require('express');
 const userController = require('../controllers/userController');
 const lusca = require('lusca');
+const auth = require('../middleware/auth');
+const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
+
+// Login route (public)
+router.post('/login',
+    [
+        body('email').isEmail().withMessage('Valid email required'),
+        body('password').isLength({ min: 6 }).withMessage('Password required'),
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        // Handles authentication and JWT issuance
+        await require('../middleware/auth').login(req, res);
+    }
+);
 
 // Routes pour le modèle User
 router.post('/subscribe-newsletter/:userId', lusca.csrf(), async (req, res) => {
@@ -23,8 +41,13 @@ router.post('/unsubscribe-newsletter/:userId', lusca.csrf(), async (req, res) =>
     }
 });
 
-router.delete('/soft-delete-account/:userId', lusca.csrf(), async (req, res) => {
+// Example: Protect sensitive user routes (soft delete, download data, contact admin)
+router.delete('/soft-delete-account/:userId', auth.authenticateJWT, lusca.csrf(), async (req, res) => {
     try {
+        // Only allow if user is self or admin
+        if (parseInt(req.params.userId) !== req.user.id && req.user.role !== 'Admin') {
+            return res.status(403).send('Forbidden.');
+        }
         await userController.softDeleteAccount(req.params.userId);
         res.status(200).send('Compte supprimé de manière douce.');
     } catch (error) {
@@ -32,8 +55,11 @@ router.delete('/soft-delete-account/:userId', lusca.csrf(), async (req, res) => 
     }
 });
 
-router.get('/download-data/:userId', async (req, res) => {
+router.get('/download-data/:userId', auth.authenticateJWT, async (req, res) => {
     try {
+        if (parseInt(req.params.userId) !== req.user.id && req.user.role !== 'Admin') {
+            return res.status(403).send('Forbidden.');
+        }
         await userController.downloadUserData(req.params.userId);
         res.status(200).send('Téléchargement des données utilisateur réussi.');
     } catch (error) {
@@ -41,8 +67,11 @@ router.get('/download-data/:userId', async (req, res) => {
     }
 });
 
-router.post('/contact-admin/:userId', lusca.csrf(), async (req, res) => {
+router.post('/contact-admin/:userId', auth.authenticateJWT, lusca.csrf(), async (req, res) => {
     try {
+        if (parseInt(req.params.userId) !== req.user.id && req.user.role !== 'Admin') {
+            return res.status(403).send('Forbidden.');
+        }
         await userController.contactAdmin(req.params.userId, req.body.message);
         res.status(200).send('Message envoyé à l’administrateur.');
     } catch (error) {

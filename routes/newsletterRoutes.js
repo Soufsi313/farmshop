@@ -1,6 +1,7 @@
 const express = require('express');
 const newsletterController = require('../controllers/newsletterController');
 const lusca = require('lusca');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -27,8 +28,11 @@ router.post('/unsubscribe', lusca.csrf(), async (req, res) => {
 });
 
 // Récupérer tous les abonnés (admin)
-router.get('/subscribers', async (req, res) => {
+router.get('/subscribers', auth.authenticateJWT, async (req, res) => {
     try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).send('Admin only.');
+        }
         const subscribers = await newsletterController.getAllSubscribers();
         res.status(200).json(subscribers);
     } catch (error) {
@@ -37,8 +41,11 @@ router.get('/subscribers', async (req, res) => {
 });
 
 // Envoyer une newsletter (simulation, admin)
-router.post('/send', lusca.csrf(), async (req, res) => {
+router.post('/send', auth.authenticateJWT, lusca.csrf(), async (req, res) => {
     try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).send('Admin only.');
+        }
         const { subject, content } = req.body;
         await newsletterController.sendNewsletter(subject, content);
         res.status(200).send('Newsletter envoyée à tous les abonnés.');

@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const bcrypt = require('bcrypt');
 
 const User = sequelize.define('User', {
     username: {
@@ -30,6 +31,20 @@ const User = sequelize.define('User', {
 }, {
     timestamps: true,
     paranoid: true, // Enables soft delete
+});
+
+User.addHook('beforeCreate', async (user, options) => {
+    if (user.password) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(user.password, salt);
+    }
+});
+
+User.addHook('beforeUpdate', async (user, options) => {
+    if (user.changed('password')) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(user.password, salt);
+    }
 });
 
 User.prototype.downloadData = function() {

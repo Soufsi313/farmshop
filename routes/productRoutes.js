@@ -1,18 +1,35 @@
 const express = require('express');
 const productController = require('../controllers/productController');
 const lusca = require('lusca');
+const auth = require('../middleware/auth');
+const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
 // Ajouter un produit
-router.post('/add', lusca.csrf(), async (req, res) => {
-    try {
-        await productController.addProduct(req.body);
-        res.status(201).send('Produit ajouté avec succès.');
-    } catch (error) {
-        res.status(400).send(error.message);
+router.post('/add',
+    auth.authenticateJWT,
+    lusca.csrf(),
+    [
+        body('name').isString().notEmpty(),
+        body('price').isFloat({ min: 0 }),
+        body('category').isString().notEmpty(),
+        body('symbol').isIn(['Au kg', 'À la pièce', 'Au litre']),
+        body('criticalThreshold').isInt({ min: 0 }),
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        try {
+            await productController.addProduct(req.body);
+            res.status(201).send('Produit ajouté avec succès.');
+        } catch (error) {
+            res.status(400).send(error.message);
+        }
     }
-});
+);
 
 // Trier les produits par critère (catégorie, prix)
 router.get('/sort', async (req, res) => {

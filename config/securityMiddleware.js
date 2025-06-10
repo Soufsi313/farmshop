@@ -31,7 +31,6 @@ function xssSanitizer(req, res, next) {
 }
 
 // Middleware de sécurité groupé
-// lusca n'est plus appliqué globalement ici, il sera appliqué par route dans les fichiers de routes
 const securityMiddleware = [
     helmet(),
     cors(),
