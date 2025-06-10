@@ -11,6 +11,8 @@ const locationRoutes = require('./routes/locationRoutes');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const cookiesRoutes = require('./routes/cookiesRoutes');
 const securityMiddleware = require('./config/securityMiddleware');
+const lusca = require('lusca');
+const session = require('express-session');
 
 const app = express();
 
@@ -21,9 +23,30 @@ app.use(securityMiddleware);
 // Active le mode proxy pour que express-rate-limit fonctionne correctement derrière un proxy (React dev server)
 app.set('trust proxy', 1);
 
+// Ajout du middleware express-session AVANT lusca
+app.use(session({
+  secret: 'farmshop_secret_key', // à personnaliser en prod
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false } // true en prod avec HTTPS
+}));
+
+// Applique lusca.csrf() sur toutes les requêtes non-GET (PUT, POST, PATCH, DELETE)
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    return lusca.csrf()(req, res, next);
+  }
+  next();
+});
+
 // Route de base
 app.get('/', (req, res) => {
     res.send('Bienvenue sur FarmShop, votre boutique en ligne !');
+});
+
+// Route pour exposer le token CSRF au frontend (lusca uniquement)
+app.get('/csrf-token', lusca.csrf(), (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
 });
 
 // Utilisation des routes

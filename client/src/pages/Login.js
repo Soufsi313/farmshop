@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [csrfToken, setCsrfToken] = useState('');
   const navigate = useNavigate();
 
   const handleChange = e => {
@@ -22,7 +23,11 @@ function Login() {
       // Remplace l'URL par celle de ton backend
       const res = await fetch('http://localhost:3000/users/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken
+        },
+        credentials: 'include',
         body: JSON.stringify(form)
       });
       const data = await res.json();
@@ -38,6 +43,13 @@ function Login() {
       setError('Erreur serveur');
     }
   };
+
+  useEffect(() => {
+    // Récupère le token CSRF au chargement de la page
+    fetch('http://localhost:3000/csrf-token', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setCsrfToken(data.csrfToken || ''));
+  }, []);
 
   return (
     <div className="container mt-5">

@@ -30,10 +30,16 @@ function xssSanitizer(req, res, next) {
     next();
 }
 
+// Options de CORS
+const corsOptions = {
+    origin: 'http://localhost:3001',
+    credentials: true
+};
+
 // Middleware de sécurité groupé
 const securityMiddleware = [
     helmet(),
-    cors(),
+    cors(corsOptions),
     rateLimit({
         windowMs: 15 * 60 * 1000, // 15 minutes
         max: 100,

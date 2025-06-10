@@ -47,6 +47,21 @@ function Navbar() {
                 <FaBlog className="me-1 mb-1" /> Blog
               </NavLink>
             </li>
+            {/* Contact et Connexion TOUJOURS visibles pour les visiteurs (non connectés) */}
+            {!user && (
+              <>
+                <li className="nav-item">
+                  <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/contact" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
+                    <FaEnvelope className="me-1 mb-1" /> Contact
+                  </NavLink>
+                </li>
+                <li className="nav-item">
+                  <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/login" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222', fontWeight: 500 })}>
+                    <FaUser className="me-1 mb-1" /> Connexion
+                  </NavLink>
+                </li>
+              </>
+            )}
             {user && (
               <>
                 <li className="nav-item dropdown">
@@ -82,40 +97,37 @@ function Navbar() {
                     </NavLink>
                   </li>
                 )}
-                {/* Déplace Contact ici pour qu'il soit à côté de Panel Admin ou Mes locations */}
+                {/* Affiche Contact pour tous les utilisateurs (toujours visible) */}
                 <li className="nav-item">
                   <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/contact" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
                     <FaEnvelope className="me-1 mb-1" /> Contact
                   </NavLink>
                 </li>
-                <li className="nav-item d-flex align-items-center ms-2">
-                  <span className="text-success me-2 d-flex align-items-center" title="Connecté">
-                    <FaCheckCircle className="me-1" /> Connecté
-                  </span>
-                  <button className="btn btn-outline-danger btn-sm ms-2" onClick={() => {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    setUser(null);
-                    window.location.href = '/';
-                  }}>
-                    <FaSignOutAlt className="me-1" /> Déconnexion
-                  </button>
-                </li>
+                {/* Affiche Connexion à droite de Contact UNIQUEMENT si non connecté */}
+                {!user && (
+                  <li className="nav-item">
+                    <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/login" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222', fontWeight: 500 })}>
+                      <FaUser className="me-1 mb-1" /> Connexion
+                    </NavLink>
+                  </li>
+                )}
+                {user && (
+                  <li className="nav-item d-flex align-items-center ms-2">
+                    <span className="text-success me-2 d-flex align-items-center" title="Connecté">
+                      <FaCheckCircle className="me-1" /> Connecté
+                    </span>
+                    <button className="btn btn-outline-danger btn-sm ms-2" onClick={() => {
+                      localStorage.removeItem('token');
+                      localStorage.removeItem('user');
+                      setUser(null);
+                      window.location.href = '/';
+                    }}>
+                      <FaSignOutAlt className="me-1" /> Déconnexion
+                    </button>
+                  </li>
+                )}
               </>
             )}
-            {!user && (
-              <li className="nav-item">
-                <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/login" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222', fontWeight: 500 })}>
-                  <FaUser className="me-1 mb-1" /> Connexion
-                </NavLink>
-              </li>
-            )}
-            {/* Affiche Contact pour tous les utilisateurs (visiteur ou connecté) juste avant Connexion/Déconnexion */}
-            <li className="nav-item">
-              <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/contact" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
-                <FaEnvelope className="me-1 mb-1" /> Contact
-              </NavLink>
-            </li>
           </ul>
         </div>
       </div>
