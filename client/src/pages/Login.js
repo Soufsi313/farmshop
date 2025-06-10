@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 function Login() {
-  const [form, setForm] = useState({ username: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -12,7 +12,7 @@ function Login() {
 
   const handleSubmit = async e => {
     e.preventDefault();
-    if (!form.username || !form.password) {
+    if (!form.email || !form.password) {
       setError('Tous les champs sont obligatoires.');
       return;
     }
@@ -48,8 +48,8 @@ function Login() {
             {error && <div className="alert alert-danger">{error}</div>}
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
-                <label className="form-label">Nom d'utilisateur</label>
-                <input type="text" className="form-control" name="username" value={form.username} onChange={handleChange} autoFocus />
+                <label className="form-label">Adresse email</label>
+                <input type="email" className="form-control" name="email" value={form.email} onChange={handleChange} autoFocus />
               </div>
               <div className="mb-3">
                 <label className="form-label">Mot de passe</label>

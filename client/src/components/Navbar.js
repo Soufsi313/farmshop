@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { FaHome, FaBoxOpen, FaBlog, FaHeart, FaEnvelope, FaShoppingCart, FaUser } from 'react-icons/fa';
+import { FaHome, FaBoxOpen, FaBlog, FaHeart, FaEnvelope, FaShoppingCart, FaUser, FaCheckCircle, FaSignOutAlt } from 'react-icons/fa';
 
 function Navbar() {
   // Simule l'état de connexion utilisateur (à remplacer par un vrai contexte ou Redux plus tard)
@@ -17,15 +17,15 @@ function Navbar() {
 
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-light shadow-sm" style={{ borderBottom: '2px solid #e6f4e6', background: '#fff' }}>
-      <div className="container">
-        <Link className="navbar-brand fw-bold" to="/" style={{ color: '#198754' }}>
+      <div className="container-fluid px-5">
+        <Link className="navbar-brand fw-bold me-4" to="/" style={{ color: '#198754', fontSize: '1.7rem', letterSpacing: '1px' }}>
           FarmShop
         </Link>
         <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span className="navbar-toggler-icon"></span>
         </button>
-        <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav ms-auto">
+        <div className="collapse navbar-collapse justify-content-center" id="navbarNav">
+          <ul className="navbar-nav w-100 justify-content-center gap-3">
             <li className="nav-item">
               <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
                 <FaHome className="me-1 mb-1" /> Accueil
@@ -82,13 +82,27 @@ function Navbar() {
                     </NavLink>
                   </li>
                 )}
+                {/* Déplace Contact ici pour qu'il soit à côté de Panel Admin ou Mes locations */}
+                <li className="nav-item">
+                  <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/contact" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
+                    <FaEnvelope className="me-1 mb-1" /> Contact
+                  </NavLink>
+                </li>
+                <li className="nav-item d-flex align-items-center ms-2">
+                  <span className="text-success me-2 d-flex align-items-center" title="Connecté">
+                    <FaCheckCircle className="me-1" /> Connecté
+                  </span>
+                  <button className="btn btn-outline-danger btn-sm ms-2" onClick={() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    setUser(null);
+                    window.location.href = '/';
+                  }}>
+                    <FaSignOutAlt className="me-1" /> Déconnexion
+                  </button>
+                </li>
               </>
             )}
-            <li className="nav-item">
-              <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/contact" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
-                <FaEnvelope className="me-1 mb-1" /> Contact
-              </NavLink>
-            </li>
             {!user && (
               <li className="nav-item">
                 <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/login" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222', fontWeight: 500 })}>
@@ -96,6 +110,12 @@ function Navbar() {
                 </NavLink>
               </li>
             )}
+            {/* Affiche Contact pour tous les utilisateurs (visiteur ou connecté) juste avant Connexion/Déconnexion */}
+            <li className="nav-item">
+              <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/contact" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
+                <FaEnvelope className="me-1 mb-1" /> Contact
+              </NavLink>
+            </li>
           </ul>
         </div>
       </div>

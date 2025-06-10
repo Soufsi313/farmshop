@@ -25,6 +25,7 @@ exports.login = async (req, res) => {
         const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
         res.json({ token, user: payload });
     } catch (err) {
+        console.error('Erreur lors du login:', err);
         res.status(500).json({ message: 'Server error.' });
     }
 };

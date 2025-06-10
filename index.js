@@ -18,6 +18,9 @@ const app = express();
 app.use(express.json());
 app.use(securityMiddleware);
 
+// Active le mode proxy pour que express-rate-limit fonctionne correctement derrière un proxy (React dev server)
+app.set('trust proxy', 1);
+
 // Route de base
 app.get('/', (req, res) => {
     res.send('Bienvenue sur FarmShop, votre boutique en ligne !');

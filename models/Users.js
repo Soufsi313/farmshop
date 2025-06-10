@@ -24,10 +24,6 @@ const User = sequelize.define('User', {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
     },
-    isSoftDeleted: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-    },
 }, {
     timestamps: true,
     paranoid: true, // Enables soft delete
