@@ -22,6 +22,21 @@ router.post('/login',
     }
 );
 
+// Register route (public)
+router.post('/register',
+    [
+        body('email').isEmail().withMessage('Valid email required'),
+        body('password').isLength({ min: 6 }).withMessage('Password required'),
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        await require('../middleware/auth').register(req, res);
+    }
+);
+
 // Routes pour le modèle User
 router.post('/subscribe-newsletter/:userId', lusca.csrf(), async (req, res) => {
     try {
@@ -76,6 +91,23 @@ router.post('/contact-admin/:userId', auth.authenticateJWT, lusca.csrf(), async 
         res.status(200).send('Message envoyé à l’administrateur.');
     } catch (error) {
         res.status(400).send(error.message);
+    }
+});
+
+// Route de vérification d'email
+router.get('/verify-email', async (req, res) => {
+    const { token } = req.query;
+    if (!token) return res.status(400).send('Token manquant.');
+    const User = require('../models/Users');
+    try {
+        const user = await User.findOne({ where: { emailVerificationToken: token } });
+        if (!user) return res.status(400).send('Lien de vérification invalide ou expiré.');
+        user.isEmailVerified = true;
+        user.emailVerificationToken = null;
+        await user.save();
+        res.send('Votre email a bien été vérifié. Vous pouvez maintenant vous connecter.');
+    } catch (err) {
+        res.status(500).send('Erreur serveur.');
     }
 });
 

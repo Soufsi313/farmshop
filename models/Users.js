@@ -24,6 +24,14 @@ const User = sequelize.define('User', {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
     },
+    isEmailVerified: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
+    emailVerificationToken: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
 }, {
     timestamps: true,
     paranoid: true, // Enables soft delete
