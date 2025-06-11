@@ -163,10 +163,11 @@ const userController = {
     updateProfilePicture: async (req, res) => {
         try {
             const { id } = req.params;
-            const { profilePicture } = req.body;
             const user = await User.findByPk(id);
             if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
-            user.profilePicture = profilePicture;
+            if (!req.file) return res.status(400).json({ message: 'Aucun fichier envoyé.' });
+            // Stocke le chemin relatif pour le frontend
+            user.profilePicture = '/uploads/' + req.file.filename;
             await user.save();
             res.json({ message: 'Photo de profil mise à jour', profilePicture: user.profilePicture });
         } catch (err) {
@@ -174,27 +175,11 @@ const userController = {
         }
     },
 
-    // Mettre à jour l'avatar
-    updateAvatar: async (req, res) => {
-        try {
-            const { id } = req.params;
-            const { avatar } = req.body;
-            const user = await User.findByPk(id);
-            if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
-            user.avatar = avatar;
-            await user.save();
-            res.json({ message: 'Avatar mis à jour', avatar: user.avatar });
-        } catch (err) {
-            res.status(500).json({ message: 'Erreur serveur', error: err.message });
-        }
-    },
-
-    // Envoyer un message dans la boîte de réception (support des fils de discussion)
-    // Si threadId fourni, rattache au fil, sinon nouveau fil
+    // Envoyer un message dans la boîte de réception (support des fils de discussion et pièces jointes)
     sendMessageToInbox: async (req, res) => {
         try {
             const { id } = req.params; // destinataire
-            const { from, subject, body, threadId } = req.body;
+            const { from, subject, body, threadId, documents } = req.body;
             const user = await User.findByPk(id);
             if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
             let inbox = Array.isArray(user.inbox) ? user.inbox : [];
@@ -205,7 +190,8 @@ const userController = {
                 body,
                 date: new Date(),
                 lu: false,
-                threadId: newThreadId
+                threadId: newThreadId,
+                documents: Array.isArray(documents) ? documents : [] // Pièces jointes (ex: [{name, url}])
             };
             inbox.push(message);
             user.inbox = inbox;
@@ -259,6 +245,20 @@ const userController = {
             user.inbox.splice(msgIndex, 1);
             await user.save();
             res.json({ message: 'Message supprimé', inbox: user.inbox });
+        } catch (err) {
+            res.status(500).json({ message: 'Erreur serveur', error: err.message });
+        }
+    },
+
+    // Récupérer les infos d'un utilisateur par son id
+    getUser: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const user = await User.findByPk(id);
+            if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+            // On ne renvoie pas le mot de passe
+            const { password, ...userData } = user.toJSON();
+            res.json({ user: userData });
         } catch (err) {
             res.status(500).json({ message: 'Erreur serveur', error: err.message });
         }

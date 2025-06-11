@@ -3,6 +3,7 @@ const userController = require('../controllers/userController');
 const lusca = require('lusca');
 const auth = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
+const upload = require('../middleware/profileUpload');
 
 const router = express.Router();
 
@@ -151,9 +152,7 @@ router.patch('/:userId/role', auth.authenticateJWT, auth.requireAdmin, lusca.csr
 // Mettre à jour la bio
 router.put('/:id/bio', lusca.csrf(), userController.updateBio);
 // Mettre à jour la photo de profil
-router.put('/:id/profile-picture', lusca.csrf(), userController.updateProfilePicture);
-// Mettre à jour l'avatar
-router.put('/:id/avatar', lusca.csrf(), userController.updateAvatar);
+router.put('/:id/profile-picture', upload.single('profilePicture'), lusca.csrf(), userController.updateProfilePicture);
 // Envoyer un message dans la boîte de réception (support threads)
 router.post('/:id/inbox', lusca.csrf(), userController.sendMessageToInbox);
 // Lire la boîte de réception (tous les messages)
@@ -162,5 +161,7 @@ router.get('/:id/inbox', lusca.csrf(), userController.getInbox);
 router.get('/:id/inbox/threads', lusca.csrf(), userController.getInboxThreads);
 // Supprimer un message de la boîte de réception (par index)
 router.delete('/:id/inbox/:msgIndex', lusca.csrf(), userController.deleteInboxMessage);
+// Récupérer les infos d'un utilisateur par son id
+router.get('/:id', userController.getUser);
 
 module.exports = router;

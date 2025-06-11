@@ -40,10 +40,6 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING, // URL ou chemin du fichier
         allowNull: true,
     },
-    avatar: {
-        type: DataTypes.STRING, // URL ou chemin du fichier/avatar
-        allowNull: true,
-    },
     inbox: {
         type: DataTypes.JSON, // Tableau d'objets messages (ex: [{from, subject, body, date, lu}])
         allowNull: true,

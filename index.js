@@ -39,6 +39,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// Servir les fichiers statiques du dossier uploads avec les bons headers CORS
+app.use('/uploads', express.static('uploads', {
+  setHeaders: (res, path) => {
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
+
 // Route de base
 app.get('/', (req, res) => {
     res.send('Bienvenue sur FarmShop, votre boutique en ligne !');
