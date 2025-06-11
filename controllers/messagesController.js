@@ -9,6 +9,22 @@ const messagesController = {
       const toUser = await User.findByPk(toId);
       if (!toUser) return res.status(404).json({ message: 'Destinataire non trouvé' });
       const newThreadId = threadId || (Date.now() + '-' + Math.random().toString(36).substr(2, 9));
+      // Si c'est une réponse (threadId fourni et fromId admin), marquer le dernier message du thread comme traité
+      if (threadId && fromId) {
+        // On cherche le dernier message du thread pour ce destinataire (hors réponse admin)
+        const lastMsg = await Messages.findOne({
+          where: {
+            threadId,
+            toId: fromId, // l'admin répond à un utilisateur, donc le message original était à l'admin
+            fromId: toId // l'utilisateur avait envoyé à l'admin
+          },
+          order: [['date', 'DESC']]
+        });
+        if (lastMsg) {
+          lastMsg.traite = true;
+          await lastMsg.save();
+        }
+      }
       const msg = await Messages.create({
         fromId: fromId || null,
         toId,

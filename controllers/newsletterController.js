@@ -53,6 +53,16 @@ const newsletterController = {
             throw error;
         }
     },
+
+    // Vérifier le statut d'abonnement d'un utilisateur
+    getStatus: async (email) => {
+        try {
+            const record = await Newsletter.findOne({ where: { email } });
+            return record;
+        } catch (error) {
+            throw error;
+        }
+    },
 };
 
 module.exports = newsletterController;

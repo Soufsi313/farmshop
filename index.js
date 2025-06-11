@@ -10,6 +10,7 @@ const ordersRoutes = require('./routes/ordersRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const cookiesRoutes = require('./routes/cookiesRoutes');
+const messagesRoutes = require('./routes/messagesRoutes');
 const securityMiddleware = require('./config/securityMiddleware');
 const lusca = require('lusca');
 const session = require('express-session');
@@ -72,6 +73,7 @@ app.use('/orders', ordersRoutes);
 app.use('/locations', locationRoutes);
 app.use('/wishlist', wishlistRoutes);
 app.use('/cookies', cookiesRoutes);
+app.use('/messages', messagesRoutes);
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;

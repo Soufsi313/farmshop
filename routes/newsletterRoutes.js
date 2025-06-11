@@ -54,4 +54,16 @@ router.post('/send', auth.authenticateJWT, lusca.csrf(), async (req, res) => {
     }
 });
 
+// Vérifier le statut d'abonnement d'un utilisateur à la newsletter
+router.get('/status', async (req, res) => {
+    try {
+        const { email } = req.query;
+        if (!email) return res.status(400).json({ isSubscribed: false, error: 'Email requis' });
+        const record = await newsletterController.getStatus(email);
+        res.status(200).json({ isSubscribed: !!(record && record.isSubscribed) });
+    } catch (error) {
+        res.status(400).json({ isSubscribed: false, error: error.message });
+    }
+});
+
 module.exports = router;
