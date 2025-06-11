@@ -101,6 +101,18 @@ function AdminPanel() {
     setLoading(false);
   };
 
+  // Utilitaire pour lire le user du localStorage sans erreur JSON.parse
+  function safeGetUser() {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return null;
+      return JSON.parse(userStr);
+    } catch (e) {
+      localStorage.removeItem('user');
+      return null;
+    }
+  }
+
   return (
     <div className="container mt-5">
       <div className="row justify-content-center">
@@ -135,12 +147,12 @@ function AdminPanel() {
                         <td>{u.role}</td>
                         <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                         <td>
-                          {u.id !== JSON.parse(localStorage.getItem('user')).id && (
+                          {u.id !== (safeGetUser()?.id) && (
                             <button className="btn btn-danger btn-sm me-2" onClick={() => handleDelete(u.id)} disabled={u.role === 'Admin'}>
                               Supprimer
                             </button>
                           )}
-                          {u.id !== JSON.parse(localStorage.getItem('user')).id && (
+                          {u.id !== (safeGetUser()?.id) && (
                             <select
                               className="form-select form-select-sm d-inline w-auto"
                               value={u.role}

@@ -31,23 +31,37 @@ const Profile = () => {
   const THREADS_PAGE_SIZE = 5;
   const [threadsPage, setThreadsPage] = useState({}); // {threadId: pageNumber}
   const fileInputRef = useRef();
+  const [isSubscribedNewsletter, setIsSubscribedNewsletter] = useState(false);
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
+  const [newsletterMsg, setNewsletterMsg] = useState('');
 
   const fetchUser = async (userId) => {
     const res = await fetch(`http://localhost:3000/users/${userId}`, { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json();
-      setUser(data.user);
-      setBioValue(data.user.bio || '');
-      setProfilePicture(data.user.profilePicture || null);
-      localStorage.setItem('user', JSON.stringify(data.user));
+    if (!res.ok) {
+      setUser(null);
+      setBioValue('');
+      setProfilePicture(null);
+      return;
     }
+    const data = await res.json();
+    setUser(data.user);
+    setBioValue(data.user.bio || '');
+    setProfilePicture(data.user.profilePicture || null);
+    localStorage.setItem('user', JSON.stringify(data.user));
   };
 
   // Nouvelle fonction pour charger la page de la boîte de réception
   const fetchInbox = async (userId, page = 1) => {
-    const res = await fetch(`http://localhost:3000/users/${userId}/inbox?page=${page}&limit=${inboxLimit}`, {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`http://localhost:3000/messages/${userId}/inbox?page=${page}&limit=${inboxLimit}`, {
       credentials: 'include',
+      headers: { 'Authorization': `Bearer ${token}` }
     });
+    if (!res.ok) {
+      setInbox([]);
+      setInboxTotal(0);
+      return;
+    }
     const data = await res.json();
     setInbox(Array.isArray(data.inbox) ? data.inbox : []);
     setInboxTotal(data.total || 0);
@@ -55,7 +69,16 @@ const Profile = () => {
 
   const fetchThreads = async (userId) => {
     setThreadsLoading(true);
-    const res = await fetch(`http://localhost:3000/users/${userId}/inbox/threads`, { credentials: 'include' });
+    const token = localStorage.getItem('token');
+    const res = await fetch(`http://localhost:3000/messages/${userId}/threads`, {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      setThreads([]);
+      setThreadsLoading(false);
+      return;
+    }
     const data = await res.json();
     if (data.threads) {
       // Trie chaque thread par date croissante
@@ -71,8 +94,12 @@ const Profile = () => {
     // Récupère l'utilisateur du localStorage
     const localUser = (() => {
       try {
-        return JSON.parse(localStorage.getItem('user'));
-      } catch {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) return null;
+        return JSON.parse(userStr);
+      } catch (e) {
+        // Si la valeur n'est pas un JSON valide, on la supprime pour éviter les erreurs récurrentes
+        localStorage.removeItem('user');
         return null;
       }
     })();
@@ -84,6 +111,13 @@ const Profile = () => {
     fetchUser(localUser.id);
     fetchInbox(localUser.id, inboxPage).finally(() => setLoading(false));
     fetchThreads(localUser.id);
+    // Vérifie le statut d'abonnement à la newsletter
+    if (localUser?.email) {
+      fetch(`http://localhost:3000/newsletter/status?email=${encodeURIComponent(localUser.email)}`)
+        .then(res => res.json())
+        .then(data => setIsSubscribedNewsletter(!!data.isSubscribed))
+        .catch(() => setIsSubscribedNewsletter(false));
+    }
   }, [inboxPage]);
 
   const handleBioSave = async () => {
@@ -118,6 +152,11 @@ const Profile = () => {
       credentials: 'include',
       body: formData
     });
+    if (!res.ok) {
+      setUploading(false);
+      alert('Erreur lors du changement de photo de profil.');
+      return;
+    }
     const data = await res.json();
     if (res.ok && data.profilePicture) {
       setProfilePicture(data.profilePicture);
@@ -132,7 +171,6 @@ const Profile = () => {
   };
 
   const handleSend = async () => {
-    // Utilise l'id de l'admin en dur (ex: 3)
     const adminId = 3;
     if (!user?.id) {
       alert("Vous devez être connecté pour contacter l'administrateur.");
@@ -140,26 +178,28 @@ const Profile = () => {
     }
     const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
     const csrfData = await csrfRes.json();
+    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`http://localhost:3000/users/${adminId}/inbox`, {
+      const res = await fetch(`http://localhost:3000/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-csrf-token': csrfData.csrfToken
+          'x-csrf-token': csrfData.csrfToken,
+          'Authorization': `Bearer ${token}`
         },
         credentials: 'include',
         body: JSON.stringify({
-          from: user?.username || user?.email || 'Visiteur',
+          toId: adminId,
           fromId: user?.id,
           subject: selectedReason,
           body: message
         })
       });
-      const data = await res.json();
       if (!res.ok) {
-        alert('Erreur lors de l\'envoi du message : ' + (data.message || res.status));
+        alert('Erreur lors de l\'envoi du message.');
         return;
       }
+      const data = await res.json();
       setShowModal(false);
       setMessage('');
       setSelectedReason(REASONS[0]);
@@ -174,38 +214,28 @@ const Profile = () => {
   };
 
   // Suppression d'un message traité
-  const handleDeleteInboxMessage = async (msgIndex) => {
+  const handleDeleteInboxMessage = async (msgIdxOrId) => {
     if (!user) return;
     try {
+      const msgId = inbox[msgIdxOrId]?.id || msgIdxOrId; // Support index ou id direct
       const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
       const csrfData = await csrfRes.json();
-      const res = await fetch(`http://localhost:3000/users/${user.id}/inbox/${msgIndex}`, {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:3000/messages/${user.id}/${msgId}`, {
         method: 'DELETE',
-        headers: { 'x-csrf-token': csrfData.csrfToken },
-        credentials: 'include',
+        headers: {
+          'x-csrf-token': csrfData.csrfToken,
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
       });
-      let data = {};
-      const text = await res.text();
-      console.log('[DEBUG DELETE inbox] status:', res.status, 'text:', text);
-      try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
       if (!res.ok) {
-        if (data && data.message) {
-          alert('Erreur lors de la suppression du message : ' + data.message);
-        } else {
-          alert('Erreur lors de la suppression du message.');
-        }
+        alert('Erreur lors de la suppression du message.');
         return;
       }
-      // Si la page courante devient vide après suppression, on recule d'une page (sauf si on est déjà à la première)
-      const newInboxLength = (data.inbox || []).length;
-      const newTotalPages = Math.ceil(newInboxLength / inboxLimit);
-      if (inboxPage > newTotalPages && inboxPage > 1) {
-        setInboxPage(inboxPage - 1);
-        // fetchInbox et fetchThreads seront appelés automatiquement par useEffect
-      } else {
-        await fetchInbox(user.id, inboxPage);
-        await fetchThreads(user.id);
-      }
+      const data = await res.json();
+      await fetchInbox(user.id, inboxPage);
+      await fetchThreads(user.id);
     } catch (err) {
       alert('Erreur réseau lors de la suppression du message.');
     }
@@ -219,20 +249,27 @@ const Profile = () => {
     try {
       const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
       const csrfData = await csrfRes.json();
-      const res = await fetch(`http://localhost:3000/users/${replyTo.msg.fromId}/inbox`, {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:3000/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-csrf-token': csrfData.csrfToken
+          'x-csrf-token': csrfData.csrfToken,
+          'Authorization': `Bearer ${token}`
         },
         credentials: 'include',
         body: JSON.stringify({
-          from: user.username,
+          toId: replyTo.msg.fromId,
+          fromId: user.id,
           subject: 'Réponse à votre message',
           body: replyMsg,
           threadId: replyTo.msg.threadId
         })
       });
+      if (!res.ok) {
+        setReplyError('Erreur lors de l\'envoi de la réponse.');
+        return;
+      }
       const data = await res.json();
       if (res.ok) {
         setReplySuccess('Réponse envoyée !');
@@ -264,13 +301,67 @@ const Profile = () => {
     const currentPage = threadsPage[threadId] || 1;
     const paginated = getPaginatedMessages(messages, threadId);
     const msg = paginated[idxInPage];
-    // Retrouver l'index réel dans l'inbox (par date et threadId)
-    const realIdx = inbox.findIndex(m => m.threadId === msg.threadId && m.date === msg.date);
-    if (realIdx !== -1) {
-      handleDeleteInboxMessage(realIdx);
+    if (msg && msg.id) {
+      handleDeleteInboxMessage(msg.id);
     } else {
-      alert("Impossible de supprimer ce message (index non trouvé)");
+      alert("Impossible de supprimer ce message (id non trouvé)");
     }
+  };
+
+  const handleSubscribeNewsletter = async () => {
+    if (!user?.email) return;
+    setNewsletterLoading(true);
+    setNewsletterMsg('');
+    try {
+      const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+      const csrfData = await csrfRes.json();
+      const res = await fetch('http://localhost:3000/newsletter/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfData.csrfToken
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email: user.email, userId: user.id })
+      });
+      if (res.ok) {
+        setIsSubscribedNewsletter(true);
+        setNewsletterMsg('Inscription à la newsletter réussie !');
+      } else {
+        setNewsletterMsg("Erreur lors de l'inscription à la newsletter.");
+      }
+    } catch {
+      setNewsletterMsg("Erreur réseau lors de l'inscription.");
+    }
+    setNewsletterLoading(false);
+  };
+
+  const handleUnsubscribeNewsletter = async () => {
+    if (!user?.email) return;
+    setNewsletterLoading(true);
+    setNewsletterMsg('');
+    try {
+      const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+      const csrfData = await csrfRes.json();
+      const res = await fetch('http://localhost:3000/newsletter/unsubscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfData.csrfToken
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email: user.email })
+      });
+      if (res.ok) {
+        setIsSubscribedNewsletter(false);
+        setNewsletterMsg('Désabonnement réussi.');
+      } else {
+        setNewsletterMsg('Erreur lors du désabonnement.');
+      }
+    } catch {
+      setNewsletterMsg('Erreur réseau lors du désabonnement.');
+    }
+    setNewsletterLoading(false);
   };
 
   return (
@@ -297,6 +388,18 @@ const Profile = () => {
                 <p className="mb-1"><b>Nom d'utilisateur :</b> {user?.username}</p>
                 <p className="mb-1"><b>Email :</b> {user?.email}</p>
                 <p className="mb-1"><b>Rôle :</b> {user?.role}</p>
+                <div className="mb-2">
+                  {isSubscribedNewsletter ? (
+                    <button className="btn btn-outline-danger btn-sm me-2" onClick={handleUnsubscribeNewsletter} disabled={newsletterLoading}>
+                      Se désinscrire de la newsletter
+                    </button>
+                  ) : (
+                    <button className="btn btn-outline-success btn-sm me-2" onClick={handleSubscribeNewsletter} disabled={newsletterLoading}>
+                      S'inscrire à la newsletter
+                    </button>
+                  )}
+                  {newsletterMsg && <span className="ms-2 small text-success">{newsletterMsg}</span>}
+                </div>
               </div>
             </div>
             {loading ? (

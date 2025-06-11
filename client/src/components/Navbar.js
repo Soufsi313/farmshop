@@ -9,9 +9,16 @@ function Navbar() {
 
   useEffect(() => {
     // Vérifie le localStorage pour un token ou un user (à remplacer par une vraie logique JWT)
-    const userData = localStorage.getItem('user');
+    let userData = null;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) userData = JSON.parse(userStr);
+    } catch (e) {
+      localStorage.removeItem('user');
+      userData = null;
+    }
     if (userData) {
-      setUser(JSON.parse(userData));
+      setUser(userData);
     }
   }, []);
 
