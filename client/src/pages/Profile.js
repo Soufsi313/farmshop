@@ -34,6 +34,9 @@ const Profile = () => {
   const [isSubscribedNewsletter, setIsSubscribedNewsletter] = useState(false);
   const [newsletterLoading, setNewsletterLoading] = useState(false);
   const [newsletterMsg, setNewsletterMsg] = useState('');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState('');
 
   const fetchUser = async (userId) => {
     const res = await fetch(`http://localhost:3000/users/${userId}`, { credentials: 'include' });
@@ -550,6 +553,90 @@ const Profile = () => {
                 Contacter l'administrateur
               </button>
             </div>
+            <div className="text-center mt-4">
+              <button className="btn btn-outline-danger" onClick={() => setShowDeleteDialog(true)}>
+                Supprimer mon compte
+              </button>
+              {deleteMsg && <div className="alert alert-info mt-3">{deleteMsg}</div>}
+            </div>
+            {showDeleteDialog && (
+              <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.35)' }} tabIndex="-1">
+                <div className="modal-dialog modal-dialog-centered">
+                  <div className="modal-content p-4 position-relative" style={{ borderRadius: 16 }}>
+                    <button onClick={() => setShowDeleteDialog(false)} type="button" className="btn-close position-absolute end-0 top-0 m-3" aria-label="Fermer"></button>
+                    <h2 className="mb-3 fw-bold fs-4 text-danger text-center">Supprimer mon compte</h2>
+                    <p className="mb-3">Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.<br/>Un email de confirmation vous sera envoyé et vous pourrez télécharger vos données.</p>
+                    <div className="d-flex justify-content-end gap-2">
+                      <button className="btn btn-secondary" onClick={() => setShowDeleteDialog(false)}>Annuler</button>
+                      <button className="btn btn-danger" disabled={deleteLoading} onClick={async () => {
+                        setDeleteLoading(true);
+                        setDeleteMsg('');
+                        try {
+                          const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+                          const csrfData = await csrfRes.json();
+                          const token = localStorage.getItem('token');
+                          // Suppression du compte (soft delete)
+                          const res = await fetch(`http://localhost:3000/users/soft-delete-account/${user.id}`, {
+                            method: 'DELETE',
+                            headers: {
+                              'x-csrf-token': csrfData.csrfToken,
+                              'Authorization': `Bearer ${token}`
+                            },
+                            credentials: 'include'
+                          });
+                          if (!res.ok) {
+                            setDeleteMsg("Erreur lors de la suppression du compte.");
+                            setDeleteLoading(false);
+                            return;
+                          }
+                          // Récupérer le statut d'envoi de l'email
+                          let emailSent = true;
+                          let emailError = null;
+                          try {
+                            const data = await res.json();
+                            emailSent = data.emailSent;
+                            emailError = data.emailError;
+                          } catch {}
+                          // Téléchargement des données utilisateur
+                          const downloadRes = await fetch(`http://localhost:3000/users/download-data/${user.id}`, {
+                            headers: { 'Authorization': `Bearer ${token}` },
+                            credentials: 'include'
+                          });
+                          if (downloadRes.ok) {
+                            const blob = await downloadRes.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `mes_donnees_farmshop_${user.id}.zip`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            if (emailSent) {
+                              setDeleteMsg('Votre compte a été supprimé. Un email de confirmation vous a été envoyé. Vos données ont été téléchargées.');
+                            } else {
+                              setDeleteMsg('Votre compte a été supprimé. Vos données ont été téléchargées. <b style="color:#d32f2f">Erreur lors de l’envoi de l’email de confirmation.</b>');
+                            }
+                            // Déconnexion automatique
+                            setTimeout(() => {
+                              localStorage.removeItem('token');
+                              localStorage.removeItem('user');
+                              window.location.href = '/';
+                            }, 4000);
+                          } else {
+                            setDeleteMsg('Compte supprimé, mais erreur lors du téléchargement des données.');
+                          }
+                        } catch {
+                          setDeleteMsg('Erreur réseau lors de la suppression.');
+                        }
+                        setDeleteLoading(false);
+                      }}>
+                        Oui, supprimer mon compte
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

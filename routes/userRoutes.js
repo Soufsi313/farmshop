@@ -64,8 +64,12 @@ router.delete('/soft-delete-account/:userId', auth.authenticateJWT, lusca.csrf()
         if (parseInt(req.params.userId) !== req.user.id && req.user.role !== 'Admin') {
             return res.status(403).send('Forbidden.');
         }
-        await userController.softDeleteAccount(req.params.userId);
-        res.status(200).send('Compte supprimé de manière douce.');
+        const { emailSent, emailError } = await userController.softDeleteAccount(req.params.userId);
+        res.status(200).json({
+            message: 'Compte supprimé de manière douce.',
+            emailSent,
+            emailError
+        });
     } catch (error) {
         res.status(400).send(error.message);
     }
@@ -124,6 +128,18 @@ router.get('/active', auth.authenticateJWT, auth.requireAdmin, async (req, res) 
     }
 });
 
+// Route GET pour récupérer tous les utilisateurs (admin uniquement, avec pagination)
+router.get('/all', auth.authenticateJWT, auth.requireAdmin, async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    try {
+        const { users, total } = await userController.getAllUsers(page, limit);
+        res.json({ users, total });
+    } catch (err) {
+        res.status(500).json({ message: 'Erreur serveur.' });
+    }
+});
+
 // Suppression d'un utilisateur (admin only, pas d'auto-suppression, pas de suppression d'admin)
 router.delete('/:userId', auth.authenticateJWT, auth.requireAdmin, lusca.csrf(), async (req, res) => {
     try {
@@ -155,5 +171,18 @@ router.put('/:id/bio', lusca.csrf(), userController.updateBio);
 router.put('/:id/profile-picture', upload.single('profilePicture'), lusca.csrf(), userController.updateProfilePicture);
 // Récupérer les infos d'un utilisateur par son id
 router.get('/:id', userController.getUser);
+
+// Réactiver un compte utilisateur (admin only)
+router.patch('/restore-account/:userId', auth.authenticateJWT, lusca.csrf(), async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).send('Admin only.');
+        }
+        await userController.restoreAccount(req.params.userId);
+        res.status(200).send('Compte réactivé.');
+    } catch (error) {
+        res.status(400).send(error.message);
+    }
+});
 
 module.exports = router;

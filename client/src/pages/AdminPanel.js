@@ -6,6 +6,7 @@ function AdminPanel() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState('all'); // 'all', 'active', 'deleted'
   const limit = 10;
 
   useEffect(() => {
@@ -14,12 +15,11 @@ function AdminPanel() {
       setError('');
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`http://localhost:3000/users/active?page=${page}&limit=${limit}`, {
+        const res = await fetch(`http://localhost:3000/users/all?page=${page}&limit=${limit}`, {
           headers: { 'Authorization': `Bearer ${token}` },
           credentials: 'include'
         });
         const data = await res.json();
-        console.log('Réponse /users/active:', data); // DEBUG
         if (res.ok) {
           setUsers(data.users);
           setTotal(data.total);
@@ -101,6 +101,35 @@ function AdminPanel() {
     setLoading(false);
   };
 
+  // Handler réactivation utilisateur soft deleted
+  const handleRestore = async (userId) => {
+    if (!window.confirm('Confirmer la réactivation de ce compte ?')) return;
+    setLoading(true);
+    setError('');
+    try {
+      const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+      const csrfData = await csrfRes.json();
+      const csrfToken = csrfData.csrfToken;
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:3000/users/restore-account/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-csrf-token': csrfToken
+        },
+        credentials: 'include'
+      });
+      if (res.ok) {
+        setUsers(users.map(u => u.id === userId ? { ...u, deletedAt: null } : u));
+      } else {
+        setError('Erreur lors de la réactivation du compte.');
+      }
+    } catch (err) {
+      setError('Erreur serveur');
+    }
+    setLoading(false);
+  };
+
   // Utilitaire pour lire le user du localStorage sans erreur JSON.parse
   function safeGetUser() {
     try {
@@ -113,12 +142,26 @@ function AdminPanel() {
     }
   }
 
+  // Filtered users for display
+  const filteredUsers = users.filter(u => {
+    if (filter === 'active') return !u.deletedAt;
+    if (filter === 'deleted') return !!u.deletedAt;
+    return true;
+  });
+
   return (
     <div className="container mt-5">
       <div className="row justify-content-center">
         <div className="col-md-10">
           <h1 className="display-4 mb-4 text-success text-center">Admin Panel</h1>
-          <h3 className="mb-3">Utilisateurs actifs</h3>
+          <div className="mb-3 d-flex gap-2 align-items-center">
+            <span>Filtrer :</span>
+            <select className="form-select w-auto" value={filter} onChange={e => setFilter(e.target.value)}>
+              <option value="all">Tous</option>
+              <option value="active">Actifs</option>
+              <option value="deleted">Supprimés</option>
+            </select>
+          </div>
           {error && <div className="alert alert-danger">{error}</div>}
           {loading ? (
             <div className="text-center">Chargement...</div>
@@ -137,10 +180,10 @@ function AdminPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.length === 0 ? (
-                      <tr><td colSpan="6" className="text-center">Aucun utilisateur actif</td></tr>
-                    ) : users.map((u, idx) => (
-                      <tr key={u.id}>
+                    {filteredUsers.length === 0 ? (
+                      <tr><td colSpan="6" className="text-center">Aucun utilisateur</td></tr>
+                    ) : filteredUsers.map((u, idx) => (
+                      <tr key={u.id} className={u.deletedAt ? 'table-danger' : ''}>
                         <td>{(page - 1) * limit + idx + 1}</td>
                         <td>{u.username}</td>
                         <td>{u.email}</td>
@@ -148,9 +191,15 @@ function AdminPanel() {
                         <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                         <td>
                           {u.id !== (safeGetUser()?.id) && (
-                            <button className="btn btn-danger btn-sm me-2" onClick={() => handleDelete(u.id)} disabled={u.role === 'Admin'}>
-                              Supprimer
-                            </button>
+                            u.deletedAt ? (
+                              <button className="btn btn-success btn-sm me-2" onClick={() => handleRestore(u.id)}>
+                                Réactiver
+                              </button>
+                            ) : (
+                              <button className="btn btn-danger btn-sm me-2" onClick={() => handleDelete(u.id)} disabled={u.role === 'Admin'}>
+                                Supprimer
+                              </button>
+                            )
                           )}
                           {u.id !== (safeGetUser()?.id) && (
                             <select
@@ -179,8 +228,8 @@ function AdminPanel() {
                       <button className="page-link" onClick={() => setPage(i + 1)}>{i + 1}</button>
                     </li>
                   ))}
-                  <li className={`page-item${page === totalPages || totalPages === 0 ? ' disabled' : ''}`}>
-                    <button className="page-link" onClick={() => setPage(page + 1)} disabled={page === totalPages || totalPages === 0}>Suivant</button>
+                  <li className={`page-item${page === totalPages ? ' disabled' : ''}`}>
+                    <button className="page-link" onClick={() => setPage(page + 1)} disabled={page === totalPages}>Suivant</button>
                   </li>
                 </ul>
               </nav>

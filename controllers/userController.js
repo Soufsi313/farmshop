@@ -1,5 +1,7 @@
 const User = require('../models/Users');
 const Messages = require('../models/Messages');
+const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 const userController = {
     subscribeToNewsletter: async (userId) => {
@@ -36,8 +38,52 @@ const userController = {
             user.isSoftDeleted = true;
             await user.destroy();
             console.log(`Le compte de l'utilisateur ${user.username} a été supprimé de manière douce.`);
+
+            // Envoi de l'email de confirmation de suppression
+            let emailSent = false;
+            let emailError = null;
+            try {
+                const transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                        user: process.env.GMAIL_USER,
+                        pass: process.env.GMAIL_PASS,
+                    },
+                });
+                const emailHtml = `
+                    <div style="background:#f8fff5;padding:32px 0;font-family:'Segoe UI',Arial,sans-serif;">
+                      <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(25,135,84,0.08);padding:32px 24px;">
+                        <div style="text-align:center;margin-bottom:24px;">
+                          <span style="display:inline-block;background:#198754;color:#fff;font-size:2rem;font-weight:bold;padding:8px 24px;border-radius:8px;letter-spacing:2px;">FarmShop</span>
+                        </div>
+                        <h2 style="color:#d32f2f;text-align:center;margin-bottom:16px;">Suppression de votre compte</h2>
+                        <p style="font-size:1.1rem;color:#222;text-align:center;margin-bottom:24px;">
+                          Bonjour ${user.username || user.email},<br>
+                          Votre compte FarmShop a bien été supprimé (suppression douce).<br>
+                          Si ce n'était pas vous, contactez immédiatement le support.<br>
+                          Vous pouvez télécharger vos données depuis votre profil avant suppression définitive.
+                        </p>
+                        <hr style="margin:32px 0 16px 0;border:none;border-top:1px solid #e6f4e6;">
+                        <div style="text-align:center;font-size:0.95rem;color:#888;">
+                          © 2024-2025 FarmShop. Tous droits réservés.<br>
+                        </div>
+                      </div>
+                    </div>`;
+                await transporter.sendMail({
+                    from: `FarmShop <${process.env.GMAIL_USER}>`,
+                    to: user.email,
+                    subject: 'Confirmation de suppression de votre compte - FarmShop',
+                    html: emailHtml
+                });
+                emailSent = true;
+            } catch (mailErr) {
+                emailError = mailErr.message || mailErr;
+                console.error('Erreur lors de l’envoi de l’email de suppression:', emailError);
+            }
+            return { emailSent, emailError };
         } catch (error) {
             console.error('Erreur lors de la suppression douce du compte :', error);
+            throw error;
         }
     },
 
@@ -127,6 +173,18 @@ const userController = {
             where: {
                 deletedAt: null
             },
+            order: [['createdAt', 'DESC']],
+            offset,
+            limit
+        });
+        return { users: rows, total: count };
+    },
+
+    // Récupérer tous les utilisateurs (actifs + supprimés) pour l'admin
+    getAllUsers: async (page = 1, limit = 10) => {
+        const offset = (page - 1) * limit;
+        const { count, rows } = await User.findAndCountAll({
+            paranoid: false, // Inclut les soft-deleted
             order: [['createdAt', 'DESC']],
             offset,
             limit
@@ -309,6 +367,21 @@ const userController = {
             res.json({ user: userData });
         } catch (err) {
             res.status(500).json({ message: 'Erreur serveur', error: err.message });
+        }
+    },
+
+    // Réactiver un compte utilisateur soft deleted
+    restoreAccount: async (userId) => {
+        try {
+            const user = await User.findByPk(userId, { paranoid: false });
+            if (!user) throw new Error('Utilisateur non trouvé');
+            await user.restore();
+            user.isSoftDeleted = false;
+            await user.save();
+            console.log(`Le compte de l'utilisateur ${user.username} a été réactivé.`);
+        } catch (error) {
+            console.error('Erreur lors de la réactivation du compte :', error);
+            throw error;
         }
     },
 };
