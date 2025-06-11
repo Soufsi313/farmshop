@@ -1,4 +1,5 @@
 const User = require('../models/Users');
+const Messages = require('../models/Messages');
 
 const userController = {
     subscribeToNewsletter: async (userId) => {
@@ -193,45 +194,60 @@ const userController = {
         }
     },
 
-    // Envoyer un message dans la boîte de réception (support des fils de discussion et pièces jointes)
-    sendMessageToInbox: async (req, res) => {
+    // Envoyer un message (création)
+    sendMessage: async (req, res) => {
         try {
-            const { id } = req.params; // destinataire
-            const { from, fromId, subject, body, threadId, documents } = req.body;
-            const user = await User.findByPk(id);
-            if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
-            let inbox = Array.isArray(user.inbox) ? user.inbox : [];
-            let newThreadId = threadId || (Date.now() + '-' + Math.random().toString(36).substr(2, 9));
-            const message = {
-                from,
+            const { id } = req.params; // destinataire (toId)
+            const { fromId, subject, body, threadId, documents } = req.body;
+            const toUser = await User.findByPk(id);
+            if (!toUser) return res.status(404).json({ message: 'Destinataire non trouvé' });
+            const newThreadId = threadId || (Date.now() + '-' + Math.random().toString(36).substr(2, 9));
+            const msg = await Messages.create({
+                fromId: fromId || null,
+                toId: id,
                 subject,
                 body,
+                threadId: newThreadId,
+                documents: documents || [],
                 date: new Date(),
                 lu: false,
-                threadId: newThreadId,
-                documents: Array.isArray(documents) ? documents : [],
-                traite: false // Nouveau champ : message traité ou non
-            };
-            if (fromId) message.fromId = fromId;
-            inbox.push(message);
-            user.inbox = inbox;
-            await user.save();
-            res.json({ message: 'Message envoyé', threadId: newThreadId, inbox: user.inbox });
+                traite: false
+            });
+            res.json({ message: 'Message envoyé', threadId: newThreadId, msg });
         } catch (err) {
             res.status(500).json({ message: 'Erreur serveur', error: err.message });
         }
     },
 
-    // Récupérer les fils de discussion (threads) de la boîte de réception
+    // Lire la boîte de réception (pagination)
+    getInbox: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const { count, rows } = await Messages.findAndCountAll({
+                where: { toId: id },
+                order: [['date', 'DESC']],
+                offset: (page - 1) * limit,
+                limit
+            });
+            res.json({ inbox: rows, total: count });
+        } catch (err) {
+            res.status(500).json({ message: 'Erreur serveur', error: err.message });
+        }
+    },
+
+    // Lire les fils de discussion (threads)
     getInboxThreads: async (req, res) => {
         try {
             const { id } = req.params;
-            const user = await User.findByPk(id);
-            if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
-            const inbox = Array.isArray(user.inbox) ? user.inbox : [];
-            // Regrouper les messages par threadId
+            const messages = await Messages.findAll({
+                where: { toId: id },
+                order: [['date', 'ASC']]
+            });
+            // Regrouper par threadId
             const threads = {};
-            inbox.forEach(msg => {
+            messages.forEach(msg => {
                 if (!threads[msg.threadId]) threads[msg.threadId] = [];
                 threads[msg.threadId].push(msg);
             });
@@ -241,64 +257,42 @@ const userController = {
         }
     },
 
-    // Lire la boîte de réception (avec pagination)
-    getInbox: async (req, res) => {
-        try {
-            const { id } = req.params;
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const user = await User.findByPk(id);
-            if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
-            let inbox = Array.isArray(user.inbox) ? user.inbox : [];
-            // Pagination
-            const total = inbox.length;
-            const start = (page - 1) * limit;
-            const end = start + limit;
-            const paginated = inbox.slice(start, end);
-            res.json({ inbox: paginated, total });
-        } catch (err) {
-            res.status(500).json({ message: 'Erreur serveur', error: err.message });
-        }
-    },
-
-    // Supprimer un message de la boîte de réception (par index)
+    // Supprimer un message
     deleteInboxMessage: async (req, res) => {
         try {
-            const { id, msgIndex } = req.params;
-            console.log('[DELETE inbox]', { id, msgIndex, cookies: req.cookies, headers: req.headers, session: req.session });
-            const user = await User.findByPk(id);
-            if (!user) {
-                console.log('[DELETE inbox] Utilisateur non trouvé');
-                return res.status(404).json({ message: 'Utilisateur non trouvé' });
-            }
-            if (!Array.isArray(user.inbox) || user.inbox.length <= msgIndex) {
-                console.log('[DELETE inbox] Message non trouvé', { inboxLength: user.inbox.length });
-                return res.status(404).json({ message: 'Message non trouvé' });
-            }
-            user.inbox.splice(msgIndex, 1);
-            user.set('inbox', user.inbox); // Force le setter Sequelize
-            user.changed('inbox', true); // Force le flag de modification
-            await user.save();
-            console.log('[DELETE inbox] Message supprimé et sauvegardé', { id, msgIndex, inbox: user.inbox });
-            res.json({ message: 'Message supprimé', inbox: user.inbox });
+            const { id, msgId } = req.params;
+            const msg = await Messages.findOne({ where: { id: msgId, toId: id } });
+            if (!msg) return res.status(404).json({ message: 'Message non trouvé' });
+            await msg.destroy();
+            res.json({ message: 'Message supprimé' });
         } catch (err) {
-            console.error('[DELETE inbox] Erreur serveur', err);
             res.status(500).json({ message: 'Erreur serveur', error: err.message });
         }
     },
 
-    // Marquer un message comme traité (admin ou réponse)
+    // Marquer un message comme traité
     markInboxMessageAsTreated: async (req, res) => {
         try {
-            const { id, msgIndex } = req.params;
-            const user = await User.findByPk(id);
-            if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
-            if (!Array.isArray(user.inbox) || user.inbox.length <= msgIndex) {
-                return res.status(404).json({ message: 'Message non trouvé' });
-            }
-            user.inbox[msgIndex].traite = true;
-            await user.save();
-            res.json({ message: 'Message marqué comme traité', inbox: user.inbox });
+            const { id, msgId } = req.params;
+            const msg = await Messages.findOne({ where: { id: msgId, toId: id } });
+            if (!msg) return res.status(404).json({ message: 'Message non trouvé' });
+            msg.traite = true;
+            await msg.save();
+            res.json({ message: 'Message marqué comme traité' });
+        } catch (err) {
+            res.status(500).json({ message: 'Erreur serveur', error: err.message });
+        }
+    },
+
+    // Marquer un message comme lu
+    markInboxMessageAsRead: async (req, res) => {
+        try {
+            const { id, msgId } = req.params;
+            const msg = await Messages.findOne({ where: { id: msgId, toId: id } });
+            if (!msg) return res.status(404).json({ message: 'Message non trouvé' });
+            msg.lu = true;
+            await msg.save();
+            res.json({ message: 'Message marqué comme lu' });
         } catch (err) {
             res.status(500).json({ message: 'Erreur serveur', error: err.message });
         }
