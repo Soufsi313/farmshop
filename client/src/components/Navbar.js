@@ -128,6 +128,14 @@ function Navbar() {
                 )}
                 {user && (
                   <li className="nav-item d-flex align-items-center ms-2">
+                    {user.profilePicture ? (
+                      <img
+                        src={user.profilePicture.startsWith('/uploads/') ? `http://localhost:3000${user.profilePicture}` : user.profilePicture}
+                        alt="Profil"
+                        className="rounded-circle border border-success me-2"
+                        style={{ width: 36, height: 36, objectFit: 'cover', background: '#fff' }}
+                      />
+                    ) : null}
                     <span className="text-success me-2 d-flex align-items-center" title="Connecté">
                       <FaCheckCircle className="me-1" /> Connecté
                     </span>
