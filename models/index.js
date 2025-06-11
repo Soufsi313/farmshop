@@ -10,6 +10,7 @@ const Orders = require('./Orders');
 const Location = require('./Location');
 const Wishlist = require('./Wishlist');
 const Cookies = require('./Cookies');
+const Messages = require('./Messages');
 
 // Synchronisation des modèles avec la base de données
 sequelize.sync({ alter: true })
@@ -26,7 +27,21 @@ sequelize.sync({ alter: true })
         console.log('Modèle Location synchronisé.');
         console.log('Modèle Wishlist synchronisé.');
         console.log('Modèle Cookies synchronisé.');
+        console.log('Modèle Messages synchronisé.');
     })
     .catch(err => console.error('Erreur lors de la synchronisation des modèles :', err));
 
-module.exports = sequelize;
+module.exports = {
+  Blogs: require('./Blogs'),
+  Cart: require('./Cart'),
+  CartLocation: require('./CartLocation'),
+  Contact: require('./Contact'),
+  Cookies: require('./Cookies'),
+  Location: require('./Location'),
+  Messages,
+  Newsletter: require('./Newsletter'),
+  Orders: require('./Orders'),
+  Products: require('./Products'),
+  Users: require('./Users'),
+  Wishlist: require('./Wishlist'),
+};

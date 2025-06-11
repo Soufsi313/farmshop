@@ -156,11 +156,13 @@ router.put('/:id/profile-picture', upload.single('profilePicture'), lusca.csrf()
 // Envoyer un message dans la boîte de réception (support threads)
 router.post('/:id/inbox', lusca.csrf(), userController.sendMessageToInbox);
 // Lire la boîte de réception (tous les messages)
-router.get('/:id/inbox', lusca.csrf(), userController.getInbox);
+router.get('/:id/inbox', userController.getInbox);
 // Lire les fils de discussion (threads)
 router.get('/:id/inbox/threads', lusca.csrf(), userController.getInboxThreads);
 // Supprimer un message de la boîte de réception (par index)
 router.delete('/:id/inbox/:msgIndex', lusca.csrf(), userController.deleteInboxMessage);
+// Marquer un message comme traité (admin ou réponse)
+router.patch('/:id/inbox/:msgIndex/traite', lusca.csrf(), userController.markInboxMessageAsTreated);
 // Récupérer les infos d'un utilisateur par son id
 router.get('/:id', userController.getUser);
 

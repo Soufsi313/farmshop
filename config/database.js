@@ -4,6 +4,7 @@ const { Sequelize } = require('sequelize');
 const sequelize = new Sequelize('farmshop', 'root', '', {
     host: 'localhost',
     dialect: 'mysql',
+    logging: console.log, // Active le log SQL
 });
 
 // Test de connexion

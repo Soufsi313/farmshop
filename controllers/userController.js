@@ -53,10 +53,28 @@ const userController = {
 
     contactAdmin: async (userId, message) => {
         try {
+            // On suppose que l'admin a l'id 3 (à adapter si besoin)
+            const adminId = 3;
+            const admin = await User.findByPk(adminId);
             const user = await User.findByPk(userId);
-            if (!user) throw new Error('Utilisateur non trouvé');
+            if (!admin || !user) throw new Error('Utilisateur ou admin non trouvé');
 
-            console.log(`L'utilisateur ${user.username} a envoyé un message à l'administrateur : ${message}`);
+            // Crée le message à ajouter dans l'inbox de l'admin
+            const msg = {
+                from: user.username || user.email || 'Visiteur',
+                fromId: user.id,
+                subject: 'Contact utilisateur',
+                body: message,
+                date: new Date(),
+                lu: false,
+                threadId: Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+                documents: [],
+                traite: false
+            };
+            let inbox = Array.isArray(admin.inbox) ? admin.inbox : [];
+            inbox.push(msg);
+            admin.inbox = inbox;
+            await admin.save();
         } catch (error) {
             console.error('Erreur lors du contact avec l\'administrateur :', error);
         }
@@ -179,7 +197,7 @@ const userController = {
     sendMessageToInbox: async (req, res) => {
         try {
             const { id } = req.params; // destinataire
-            const { from, subject, body, threadId, documents } = req.body;
+            const { from, fromId, subject, body, threadId, documents } = req.body;
             const user = await User.findByPk(id);
             if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
             let inbox = Array.isArray(user.inbox) ? user.inbox : [];
@@ -191,8 +209,10 @@ const userController = {
                 date: new Date(),
                 lu: false,
                 threadId: newThreadId,
-                documents: Array.isArray(documents) ? documents : [] // Pièces jointes (ex: [{name, url}])
+                documents: Array.isArray(documents) ? documents : [],
+                traite: false // Nouveau champ : message traité ou non
             };
+            if (fromId) message.fromId = fromId;
             inbox.push(message);
             user.inbox = inbox;
             await user.save();
@@ -221,13 +241,21 @@ const userController = {
         }
     },
 
-    // Lire la boîte de réception
+    // Lire la boîte de réception (avec pagination)
     getInbox: async (req, res) => {
         try {
             const { id } = req.params;
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
             const user = await User.findByPk(id);
             if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
-            res.json({ inbox: user.inbox || [] });
+            let inbox = Array.isArray(user.inbox) ? user.inbox : [];
+            // Pagination
+            const total = inbox.length;
+            const start = (page - 1) * limit;
+            const end = start + limit;
+            const paginated = inbox.slice(start, end);
+            res.json({ inbox: paginated, total });
         } catch (err) {
             res.status(500).json({ message: 'Erreur serveur', error: err.message });
         }
@@ -237,14 +265,40 @@ const userController = {
     deleteInboxMessage: async (req, res) => {
         try {
             const { id, msgIndex } = req.params;
+            console.log('[DELETE inbox]', { id, msgIndex, cookies: req.cookies, headers: req.headers, session: req.session });
+            const user = await User.findByPk(id);
+            if (!user) {
+                console.log('[DELETE inbox] Utilisateur non trouvé');
+                return res.status(404).json({ message: 'Utilisateur non trouvé' });
+            }
+            if (!Array.isArray(user.inbox) || user.inbox.length <= msgIndex) {
+                console.log('[DELETE inbox] Message non trouvé', { inboxLength: user.inbox.length });
+                return res.status(404).json({ message: 'Message non trouvé' });
+            }
+            user.inbox.splice(msgIndex, 1);
+            user.set('inbox', user.inbox); // Force le setter Sequelize
+            user.changed('inbox', true); // Force le flag de modification
+            await user.save();
+            console.log('[DELETE inbox] Message supprimé et sauvegardé', { id, msgIndex, inbox: user.inbox });
+            res.json({ message: 'Message supprimé', inbox: user.inbox });
+        } catch (err) {
+            console.error('[DELETE inbox] Erreur serveur', err);
+            res.status(500).json({ message: 'Erreur serveur', error: err.message });
+        }
+    },
+
+    // Marquer un message comme traité (admin ou réponse)
+    markInboxMessageAsTreated: async (req, res) => {
+        try {
+            const { id, msgIndex } = req.params;
             const user = await User.findByPk(id);
             if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
             if (!Array.isArray(user.inbox) || user.inbox.length <= msgIndex) {
                 return res.status(404).json({ message: 'Message non trouvé' });
             }
-            user.inbox.splice(msgIndex, 1);
+            user.inbox[msgIndex].traite = true;
             await user.save();
-            res.json({ message: 'Message supprimé', inbox: user.inbox });
+            res.json({ message: 'Message marqué comme traité', inbox: user.inbox });
         } catch (err) {
             res.status(500).json({ message: 'Erreur serveur', error: err.message });
         }

@@ -31,9 +31,14 @@ app.use(session({
   cookie: { secure: false } // true en prod avec HTTPS
 }));
 
-// Applique lusca.csrf() sur toutes les requêtes non-GET (PUT, POST, PATCH, DELETE)
+// Applique lusca.csrf() sur toutes les requêtes non-GET (PUT, POST, PATCH, DELETE),
+// sauf pour la suppression d'un message d'inbox (DELETE /users/:id/inbox/:msgIndex)
 app.use((req, res, next) => {
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    // Désactive CSRF pour la suppression d'un message d'inbox
+    if (req.method === "DELETE" && /^\/users\/\d+\/inbox\/\d+$/.test(req.path)) {
+      return next();
+    }
     return lusca.csrf()(req, res, next);
   }
   next();
