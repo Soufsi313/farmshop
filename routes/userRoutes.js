@@ -97,17 +97,17 @@ router.post('/contact-admin/:userId', auth.authenticateJWT, lusca.csrf(), async 
 // Route de vérification d'email
 router.get('/verify-email', async (req, res) => {
     const { token } = req.query;
-    if (!token) return res.status(400).send('Token manquant.');
+    if (!token) return res.status(400).send('<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Validation email - FarmShop</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"><style>body{background:#f8fff5;} .card{margin-top:60px;} .farmshop-title{color:#198754;font-size:2.2rem;letter-spacing:2px;font-weight:bold;}</style></head><body><div class="container"><div class="row justify-content-center"><div class="col-md-8"><div class="card p-4 shadow-lg border-0"><div class="text-center mb-4"><span class="farmshop-title">FarmShop</span></div><h2 class="mb-3 text-danger text-center">Lien invalide</h2><div class="alert alert-danger text-center">Token manquant.</div><div class="text-center mt-4"><a href="/login" class="btn btn-outline-secondary">Retour à la connexion</a></div></div></div></div></div></body></html>');
     const User = require('../models/Users');
     try {
         const user = await User.findOne({ where: { emailVerificationToken: token } });
-        if (!user) return res.status(400).send('Lien de vérification invalide ou expiré.');
+        if (!user) return res.status(400).send('<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Validation email - FarmShop</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"><style>body{background:#f8fff5;} .card{margin-top:60px;} .farmshop-title{color:#198754;font-size:2.2rem;letter-spacing:2px;font-weight:bold;}</style></head><body><div class="container"><div class="row justify-content-center"><div class="col-md-8"><div class="card p-4 shadow-lg border-0"><div class="text-center mb-4"><span class="farmshop-title">FarmShop</span></div><h2 class="mb-3 text-danger text-center">Lien invalide</h2><div class="alert alert-danger text-center">Lien de vérification invalide ou expiré.</div><div class="text-center mt-4"><a href="/login" class="btn btn-outline-secondary">Retour à la connexion</a></div></div></div></div></div></body></html>');
         user.isEmailVerified = true;
         user.emailVerificationToken = null;
         await user.save();
-        res.send('Votre email a bien été vérifié. Vous pouvez maintenant vous connecter.');
+        res.send(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Validation email - FarmShop</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"><style>body{background:#f8fff5;} .card{margin-top:60px;} .farmshop-title{color:#198754;font-size:2.2rem;letter-spacing:2px;font-weight:bold;}</style></head><body><div class="container"><div class="row justify-content-center"><div class="col-md-8"><div class="card p-4 shadow-lg border-0"><div class="text-center mb-4"><span class="farmshop-title">FarmShop</span></div><h2 class="mb-3 text-success text-center">Email vérifié !</h2><div class="alert alert-success text-center">Votre email a bien été vérifié.<br>Vous pouvez maintenant vous connecter.</div><div class="text-center mt-4"><a href="/login" class="btn btn-success">Se connecter</a></div></div></div></div></div></body></html>`);
     } catch (err) {
-        res.status(500).send('Erreur serveur.');
+        res.status(500).send('<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Validation email - FarmShop</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"><style>body{background:#f8fff5;} .card{margin-top:60px;} .farmshop-title{color:#198754;font-size:2.2rem;letter-spacing:2px;font-weight:bold;}</style></head><body><div class="container"><div class="row justify-content-center"><div class="col-md-8"><div class="card p-4 shadow-lg border-0"><div class="text-center mb-4"><span class="farmshop-title">FarmShop</span></div><h2 class="mb-3 text-danger text-center">Erreur serveur</h2><div class="alert alert-danger text-center">Une erreur est survenue lors de la validation.</div><div class="text-center mt-4"><a href="/login" class="btn btn-outline-secondary">Retour à la connexion</a></div></div></div></div></div></body></html>');
     }
 });
 
@@ -147,5 +147,20 @@ router.patch('/:userId/role', auth.authenticateJWT, auth.requireAdmin, lusca.csr
         res.status(400).json({ message: error.message });
     }
 });
+
+// Mettre à jour la bio
+router.put('/:id/bio', lusca.csrf(), userController.updateBio);
+// Mettre à jour la photo de profil
+router.put('/:id/profile-picture', lusca.csrf(), userController.updateProfilePicture);
+// Mettre à jour l'avatar
+router.put('/:id/avatar', lusca.csrf(), userController.updateAvatar);
+// Envoyer un message dans la boîte de réception (support threads)
+router.post('/:id/inbox', lusca.csrf(), userController.sendMessageToInbox);
+// Lire la boîte de réception (tous les messages)
+router.get('/:id/inbox', lusca.csrf(), userController.getInbox);
+// Lire les fils de discussion (threads)
+router.get('/:id/inbox/threads', lusca.csrf(), userController.getInboxThreads);
+// Supprimer un message de la boîte de réception (par index)
+router.delete('/:id/inbox/:msgIndex', lusca.csrf(), userController.deleteInboxMessage);
 
 module.exports = router;

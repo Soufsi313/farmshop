@@ -31,11 +31,11 @@ function Login() {
         body: JSON.stringify(form)
       });
       const data = await res.json();
-      if (res.ok && data.token) {
+      if (res.ok && data.token && data.user) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/');
-        window.location.reload(); // recharge la navbar
+        // Recharge la page pour que la navbar détecte le user
+        window.location.href = '/profile';
       } else {
         setError(data.message || 'Identifiants invalides');
       }

@@ -32,6 +32,23 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: true,
     },
+    bio: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+    },
+    profilePicture: {
+        type: DataTypes.STRING, // URL ou chemin du fichier
+        allowNull: true,
+    },
+    avatar: {
+        type: DataTypes.STRING, // URL ou chemin du fichier/avatar
+        allowNull: true,
+    },
+    inbox: {
+        type: DataTypes.JSON, // Tableau d'objets messages (ex: [{from, subject, body, date, lu}])
+        allowNull: true,
+        defaultValue: [],
+    },
 }, {
     timestamps: true,
     paranoid: true, // Enables soft delete

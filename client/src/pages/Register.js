@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function Register() {
   const [form, setForm] = useState({ email: '', password: '', username: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [csrfToken, setCsrfToken] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch('http://localhost:3000/csrf-token', { credentials: 'include' })
@@ -42,6 +44,8 @@ function Register() {
       if (res.ok) {
         setSuccess(data.message || 'Inscription réussie. Vérifiez votre email.');
         setForm({ email: '', password: '', username: '' });
+        // Redirige vers la page de validation d'email avec le lien
+        navigate('/email-validation', { state: { verifyUrl: data.verifyUrl } });
       } else {
         setError(data.message || 'Erreur lors de l’inscription.');
       }

@@ -12,9 +12,9 @@ const Wishlist = require('./Wishlist');
 const Cookies = require('./Cookies');
 
 // Synchronisation des modèles avec la base de données
-sequelize.sync()
+sequelize.sync({ alter: true })
     .then(() => {
-        console.log('Les modèles ont été synchronisés avec la base de données.');
+        console.log('Les modèles ont été synchronisés avec la base de données (alter mode).');
         console.log('Modèle Users synchronisé.');
         console.log('Modèle Products synchronisé.');
         console.log('Modèle Blogs synchronisé.');

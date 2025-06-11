@@ -103,6 +103,14 @@ function Navbar() {
                     <FaEnvelope className="me-1 mb-1" /> Contact
                   </NavLink>
                 </li>
+                {/* Affiche Profil juste à côté de Contact, visible uniquement pour User et Admin */}
+                {(user && (user.role === 'User' || user.role === 'Admin')) && (
+                  <li className="nav-item">
+                    <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/profile" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
+                      <FaUser className="me-1 mb-1" /> Profil
+                    </NavLink>
+                  </li>
+                )}
                 {/* Affiche Connexion à droite de Contact UNIQUEMENT si non connecté */}
                 {!user && (
                   <li className="nav-item">
