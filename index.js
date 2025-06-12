@@ -16,6 +16,7 @@ const specialOfferRoutes = require('./routes/specialOfferRoutes');
 const securityMiddleware = require('./config/securityMiddleware');
 const lusca = require('lusca');
 const session = require('express-session');
+const blogCommentRoutes = require('./routes/blogCommentRoutes');
 
 const app = express();
 
@@ -78,6 +79,7 @@ app.use('/cookies', cookiesRoutes);
 app.use('/messages', messagesRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/special-offers', specialOfferRoutes);
+app.use('/blog-comments', blogCommentRoutes);
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;
