@@ -13,6 +13,7 @@ const Cookies = require('./Cookies');
 const Messages = require('./Messages');
 const Category = require('./Category');
 const SpecialOffer = require('./SpecialOffer');
+const BlogComment = require('./BlogComment');
 
 // Associations
 Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
@@ -36,6 +37,7 @@ sequelize.sync({ alter: true })
         console.log('Modèle Messages synchronisé.');
         console.log('Modèle Category synchronisé.');
         console.log('Modèle SpecialOffer synchronisé.');
+        console.log('Modèle BlogComment synchronisé.');
     })
     .catch(err => console.error('Erreur lors de la synchronisation des modèles :', err));
 
@@ -54,4 +56,5 @@ module.exports = {
   Wishlist: require('./Wishlist'),
   Category: require('./Category'),
   SpecialOffer: require('./SpecialOffer'),
+  BlogComment: require('./BlogComment'),
 };
