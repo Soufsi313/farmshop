@@ -9,6 +9,28 @@ function AdminPanel() {
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'deleted'
   const limit = 10;
 
+  // Product management state
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [productForm, setProductForm] = useState({
+    id: null,
+    name: '',
+    description: '',
+    price: '',
+    quantity: '',
+    categoryId: '',
+    symbol: 'Au kg',
+    mainImage: null,
+    galleryImages: [],
+    criticalThreshold: '',
+    isAvailable: true
+  });
+  const [productEditMode, setProductEditMode] = useState(false);
+  const [productError, setProductError] = useState('');
+  const [productLoading, setProductLoading] = useState(false);
+  const [productImagePreview, setProductImagePreview] = useState(null);
+  const [galleryPreviews, setGalleryPreviews] = useState([]);
+
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
@@ -149,6 +171,160 @@ function AdminPanel() {
     return true;
   });
 
+  // Fetch products and categories
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+  }, []);
+
+  const fetchProducts = async () => {
+    setProductLoading(true);
+    setProductError('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:3000/products', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProducts(data.products || []);
+      } else {
+        setProductError(data.message || 'Erreur lors du chargement des produits.');
+      }
+    } catch (err) {
+      setProductError('Erreur serveur');
+    }
+    setProductLoading(false);
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/categories');
+      const data = await res.json();
+      if (res.ok) {
+        setCategories(data.categories || []);
+      }
+    } catch {}
+  };
+
+  // Handle product form changes
+  const handleProductFormChange = e => {
+    const { name, value, type, checked, files } = e.target;
+    if (type === 'checkbox') {
+      setProductForm(f => ({ ...f, [name]: checked }));
+    } else if (type === 'file') {
+      if (name === 'mainImage') {
+        setProductForm(f => ({ ...f, mainImage: files[0] }));
+        setProductImagePreview(files[0] ? URL.createObjectURL(files[0]) : null);
+      } else if (name === 'galleryImages') {
+        setProductForm(f => ({ ...f, galleryImages: Array.from(files) }));
+        setGalleryPreviews(Array.from(files).map(f => URL.createObjectURL(f)));
+      }
+    } else {
+      setProductForm(f => ({ ...f, [name]: value }));
+    }
+  };
+
+  // Add or update product
+  const handleProductSubmit = async e => {
+    e.preventDefault();
+    setProductLoading(true);
+    setProductError('');
+    try {
+      const token = localStorage.getItem('token');
+      const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+      const csrfData = await csrfRes.json();
+      const csrfToken = csrfData.csrfToken;
+      const formData = new FormData();
+      Object.entries(productForm).forEach(([key, val]) => {
+        if (key === 'mainImage' && val) formData.append('mainImage', val);
+        else if (key === 'galleryImages' && val && val.length) {
+          val.forEach((img, idx) => formData.append('galleryImages', img));
+        } else if (key !== 'mainImage' && key !== 'galleryImages') {
+          formData.append(key, val);
+        }
+      });
+      const url = productEditMode
+        ? `http://localhost:3000/products/${productForm.id}`
+        : 'http://localhost:3000/products/add';
+      const method = productEditMode ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-csrf-token': csrfToken
+        },
+        credentials: 'include',
+        body: formData
+      });
+      if (res.ok) {
+        fetchProducts();
+        setProductForm({
+          id: null, name: '', description: '', price: '', quantity: '', categoryId: '', symbol: 'Au kg', mainImage: null, galleryImages: [], criticalThreshold: '', isAvailable: true
+        });
+        setProductEditMode(false);
+        setProductImagePreview(null);
+        setGalleryPreviews([]);
+      } else {
+        const data = await res.json();
+        setProductError(data.message || 'Erreur lors de l’enregistrement du produit.');
+      }
+    } catch (err) {
+      setProductError('Erreur serveur');
+    }
+    setProductLoading(false);
+  };
+
+  // Edit product
+  const handleProductEdit = prod => {
+    setProductForm({
+      id: prod.id,
+      name: prod.name,
+      description: prod.description,
+      price: prod.price,
+      quantity: prod.quantity,
+      categoryId: prod.categoryId,
+      symbol: prod.symbol,
+      mainImage: null,
+      galleryImages: [],
+      criticalThreshold: prod.criticalThreshold,
+      isAvailable: prod.isAvailable
+    });
+    setProductEditMode(true);
+    setProductImagePreview(prod.mainImage ? `http://localhost:3000${prod.mainImage}` : null);
+    setGalleryPreviews(Array.isArray(prod.galleryImages) ? prod.galleryImages.map(img => `http://localhost:3000${img}`) : []);
+  };
+
+  // Delete product
+  const handleProductDelete = async id => {
+    if (!window.confirm('Confirmer la suppression de ce produit ?')) return;
+    setProductLoading(true);
+    setProductError('');
+    try {
+      const token = localStorage.getItem('token');
+      const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+      const csrfData = await csrfRes.json();
+      const csrfToken = csrfData.csrfToken;
+      const res = await fetch(`http://localhost:3000/products/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-csrf-token': csrfToken
+        },
+        credentials: 'include'
+      });
+      if (res.ok) fetchProducts();
+      else {
+        const data = await res.json();
+        setProductError(data.message || 'Erreur lors de la suppression.');
+      }
+    } catch (err) {
+      setProductError('Erreur serveur');
+    }
+    setProductLoading(false);
+  };
+
   return (
     <div className="container mt-5">
       <div className="row justify-content-center">
@@ -233,6 +409,123 @@ function AdminPanel() {
                   </li>
                 </ul>
               </nav>
+            </>
+          )}
+        </div>
+      </div>
+      <hr className="my-5" />
+      <div className="row justify-content-center">
+        <div className="col-md-10">
+          <h2 className="mb-4 text-success">Gestion des produits</h2>
+          {productError && <div className="alert alert-danger">{productError}</div>}
+          {productLoading ? <div>Chargement...</div> : (
+            <>
+              <form className="row g-3 mb-4" onSubmit={handleProductSubmit} encType="multipart/form-data">
+                <input type="hidden" name="id" value={productForm.id || ''} />
+                <div className="col-md-4">
+                  <label className="form-label">Nom</label>
+                  <input className="form-control" name="name" value={productForm.name} onChange={handleProductFormChange} required />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Prix</label>
+                  <input className="form-control" name="price" type="number" min="0" step="0.01" value={productForm.price} onChange={handleProductFormChange} required />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Quantité</label>
+                  <input className="form-control" name="quantity" type="number" min="0" value={productForm.quantity} onChange={handleProductFormChange} required />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Catégorie</label>
+                  <select className="form-select" name="categoryId" value={productForm.categoryId} onChange={handleProductFormChange} required>
+                    <option value="">Sélectionner</option>
+                    {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                  </select>
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Unité</label>
+                  <select className="form-select" name="symbol" value={productForm.symbol} onChange={handleProductFormChange} required>
+                    <option value="Au kg">Au kg</option>
+                    <option value="À la pièce">À la pièce</option>
+                    <option value="Au litre">Au litre</option>
+                  </select>
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Seuil critique</label>
+                  <input className="form-control" name="criticalThreshold" type="number" min="0" value={productForm.criticalThreshold} onChange={handleProductFormChange} required />
+                </div>
+                <div className="col-md-12">
+                  <label className="form-label">Description</label>
+                  <textarea className="form-control" name="description" value={productForm.description} onChange={handleProductFormChange} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Image principale</label>
+                  <input className="form-control" name="mainImage" type="file" accept="image/*" onChange={handleProductFormChange} />
+                  {productImagePreview && <img src={productImagePreview} alt="main" className="img-thumbnail mt-2" style={{ maxHeight: 80 }} />}
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Galerie d'images</label>
+                  <input className="form-control" name="galleryImages" type="file" accept="image/*" multiple onChange={handleProductFormChange} />
+                  {galleryPreviews.length > 0 && galleryPreviews.map((src, i) => <img key={i} src={src} alt="gallery" className="img-thumbnail mt-2 me-1" style={{ maxHeight: 50 }} />)}
+                </div>
+                <div className="col-md-2 d-flex align-items-center">
+                  <div className="form-check">
+                    <input className="form-check-input" type="checkbox" name="isAvailable" checked={productForm.isAvailable} onChange={handleProductFormChange} id="isAvailableCheck" />
+                    <label className="form-check-label" htmlFor="isAvailableCheck">Disponible</label>
+                  </div>
+                </div>
+                <div className="col-md-2 d-flex align-items-end">
+                  <button className="btn btn-success w-100" type="submit">{productEditMode ? 'Mettre à jour' : 'Ajouter'}</button>
+                </div>
+                {productEditMode && (
+                  <div className="col-md-2 d-flex align-items-end">
+                    <button className="btn btn-secondary w-100" type="button" onClick={() => {
+                      setProductEditMode(false);
+                      setProductForm({ id: null, name: '', description: '', price: '', quantity: '', categoryId: '', symbol: 'Au kg', mainImage: null, galleryImages: [], criticalThreshold: '', isAvailable: true });
+                      setProductImagePreview(null);
+                      setGalleryPreviews([]);
+                    }}>Annuler</button>
+                  </div>
+                )}
+              </form>
+              <div className="table-responsive">
+                <table className="table table-bordered table-hover align-middle">
+                  <thead className="table-success">
+                    <tr>
+                      <th>#</th>
+                      <th>Nom</th>
+                      <th>Catégorie</th>
+                      <th>Prix</th>
+                      <th>Quantité</th>
+                      <th>Unité</th>
+                      <th>Seuil critique</th>
+                      <th>Disponible</th>
+                      <th>Image</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.length === 0 ? (
+                      <tr><td colSpan="10" className="text-center">Aucun produit</td></tr>
+                    ) : products.map((p, idx) => (
+                      <tr key={p.id} className={!p.isAvailable ? 'table-warning' : ''}>
+                        <td>{idx + 1}</td>
+                        <td>{p.name}</td>
+                        <td>{categories.find(c => c.id === p.categoryId)?.name || ''}</td>
+                        <td>{p.price} €</td>
+                        <td>{p.quantity}</td>
+                        <td>{p.symbol}</td>
+                        <td>{p.criticalThreshold}</td>
+                        <td>{p.isAvailable ? 'Oui' : 'Non'}</td>
+                        <td>{p.mainImage && <img src={`http://localhost:3000${p.mainImage}`} alt="main" style={{ maxHeight: 40 }} />}</td>
+                        <td>
+                          <button className="btn btn-primary btn-sm me-2" onClick={() => handleProductEdit(p)}>Éditer</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleProductDelete(p.id)}>Supprimer</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </div>
