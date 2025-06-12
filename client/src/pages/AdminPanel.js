@@ -31,6 +31,12 @@ function AdminPanel() {
   const [productImagePreview, setProductImagePreview] = useState(null);
   const [galleryPreviews, setGalleryPreviews] = useState([]);
 
+  // Category management state
+  const [categoryForm, setCategoryForm] = useState({ id: null, name: '', description: '' });
+  const [categoryEditMode, setCategoryEditMode] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
+  const [categoryLoading, setCategoryLoading] = useState(false);
+
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
@@ -325,6 +331,79 @@ function AdminPanel() {
     setProductLoading(false);
   };
 
+  // Add or update category
+  const handleCategorySubmit = async e => {
+    e.preventDefault();
+    setCategoryLoading(true);
+    setCategoryError('');
+    try {
+      const token = localStorage.getItem('token');
+      const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+      const csrfData = await csrfRes.json();
+      const csrfToken = csrfData.csrfToken;
+      const url = categoryEditMode
+        ? `http://localhost:3000/categories/${categoryForm.id}`
+        : 'http://localhost:3000/categories';
+      const method = categoryEditMode ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-csrf-token': csrfToken
+        },
+        credentials: 'include',
+        body: JSON.stringify({ name: categoryForm.name, description: categoryForm.description })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        fetchCategories();
+        setCategoryForm({ id: null, name: '', description: '' });
+        setCategoryEditMode(false);
+      } else {
+        setCategoryError(data.message || 'Erreur lors de l’enregistrement de la catégorie.');
+      }
+    } catch (err) {
+      setCategoryError('Erreur serveur');
+    }
+    setCategoryLoading(false);
+  };
+
+  // Edit category
+  const handleCategoryEdit = cat => {
+    setCategoryForm({ id: cat.id, name: cat.name, description: cat.description });
+    setCategoryEditMode(true);
+  };
+
+  // Delete category
+  const handleCategoryDelete = async id => {
+    if (!window.confirm('Confirmer la suppression de cette catégorie ?')) return;
+    setCategoryLoading(true);
+    setCategoryError('');
+    try {
+      const token = localStorage.getItem('token');
+      const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+      const csrfData = await csrfRes.json();
+      const csrfToken = csrfData.csrfToken;
+      const res = await fetch(`http://localhost:3000/categories/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-csrf-token': csrfToken
+        },
+        credentials: 'include'
+      });
+      if (res.ok) fetchCategories();
+      else {
+        const data = await res.json();
+        setCategoryError(data.message || 'Erreur lors de la suppression.');
+      }
+    } catch (err) {
+      setCategoryError('Erreur serveur');
+    }
+    setCategoryLoading(false);
+  };
+
   return (
     <div className="container mt-5">
       <div className="row justify-content-center">
@@ -520,6 +599,66 @@ function AdminPanel() {
                         <td>
                           <button className="btn btn-primary btn-sm me-2" onClick={() => handleProductEdit(p)}>Éditer</button>
                           <button className="btn btn-danger btn-sm" onClick={() => handleProductDelete(p.id)}>Supprimer</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <hr className="my-5" />
+      <div className="row justify-content-center">
+        <div className="col-md-8">
+          <h2 className="mb-4 text-success">Gestion des catégories</h2>
+          {categoryError && <div className="alert alert-danger">{categoryError}</div>}
+          {categoryLoading ? <div>Chargement...</div> : (
+            <>
+              <form className="row g-3 mb-4" onSubmit={handleCategorySubmit}>
+                <input type="hidden" name="id" value={categoryForm.id || ''} />
+                <div className="col-md-6">
+                  <label className="form-label">Nom</label>
+                  <input className="form-control" name="name" value={categoryForm.name} onChange={e => setCategoryForm(f => ({ ...f, name: e.target.value }))} required />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Description</label>
+                  <input className="form-control" name="description" value={categoryForm.description} onChange={e => setCategoryForm(f => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="col-md-3 d-flex align-items-end">
+                  <button className="btn btn-success w-100" type="submit">{categoryEditMode ? 'Mettre à jour' : 'Ajouter'}</button>
+                </div>
+                {categoryEditMode && (
+                  <div className="col-md-3 d-flex align-items-end">
+                    <button className="btn btn-secondary w-100" type="button" onClick={() => {
+                      setCategoryEditMode(false);
+                      setCategoryForm({ id: null, name: '', description: '' });
+                    }}>Annuler</button>
+                  </div>
+                )}
+              </form>
+              <div className="table-responsive">
+                <table className="table table-bordered table-hover align-middle">
+                  <thead className="table-success">
+                    <tr>
+                      <th>#</th>
+                      <th>Nom</th>
+                      <th>Description</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categories.length === 0 ? (
+                      <tr><td colSpan="4" className="text-center">Aucune catégorie</td></tr>
+                    ) : categories.map((cat, idx) => (
+                      <tr key={cat.id}>
+                        <td>{idx + 1}</td>
+                        <td>{cat.name}</td>
+                        <td>{cat.description}</td>
+                        <td>
+                          <button className="btn btn-primary btn-sm me-2" onClick={() => handleCategoryEdit(cat)}>Éditer</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleCategoryDelete(cat.id)}>Supprimer</button>
                         </td>
                       </tr>
                     ))}
