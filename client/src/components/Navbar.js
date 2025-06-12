@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { FaHome, FaBoxOpen, FaBlog, FaHeart, FaEnvelope, FaShoppingCart, FaUser, FaCheckCircle, FaSignOutAlt } from 'react-icons/fa';
+import { FaRegStar } from 'react-icons/fa';
 
 function Navbar() {
   // Simule l'état de connexion utilisateur (à remplacer par un vrai contexte ou Redux plus tard)
@@ -45,8 +46,16 @@ function Navbar() {
                 <FaBoxOpen className="me-1 mb-1" /> Produits
               </NavLink>
               <ul className="dropdown-menu" aria-labelledby="produitsDropdown">
-                <li><NavLink className="dropdown-item" to="/produits/achat">Produits d'achat</NavLink></li>
-                <li><NavLink className="dropdown-item" to="/produits/location">Produits de location</NavLink></li>
+                <li>
+                  <NavLink className={({ isActive }) => 'dropdown-item' + (isActive ? ' active' : '')} to="/produits/achat">
+                    Achat
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink className={({ isActive }) => 'dropdown-item' + (isActive ? ' active' : '')} to="/produits/location">
+                    Location
+                  </NavLink>
+                </li>
               </ul>
             </li>
             <li className="nav-item">
@@ -83,8 +92,8 @@ function Navbar() {
                   </ul>
                 </li>
                 <li className="nav-item">
-                  <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/wishlist" style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
-                    <FaHeart className="me-1 mb-1" /> Wishlist
+                  <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/wishlist" style={({ isActive }) => ({ color: isActive ? '#ffc107' : '#222' })}>
+                    <FaRegStar className="me-1 mb-1" style={{color:'#ffc107'}} /> Wishlist
                   </NavLink>
                 </li>
                 <li className="nav-item">
