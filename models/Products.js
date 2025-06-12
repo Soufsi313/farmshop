@@ -18,9 +18,15 @@ const Product = sequelize.define('Product', {
         type: DataTypes.INTEGER,
         allowNull: false,
     },
-    category: {
-        type: DataTypes.STRING,
+    categoryId: {
+        type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+            model: 'Categories',
+            key: 'id',
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'RESTRICT',
     },
     symbol: {
         type: DataTypes.ENUM('Au kg', 'À la pièce', 'Au litre'),
