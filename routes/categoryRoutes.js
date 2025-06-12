@@ -2,17 +2,14 @@ const express = require('express');
 const router = express.Router();
 const categoryController = require('../controllers/categoryController');
 const auth = require('../middleware/auth');
+const lusca = require('lusca');
 
 // Get all categories (public)
 router.get('/', categoryController.getAllCategories);
 
-// Create category (admin only)
-router.post('/', auth.authenticateJWT, auth.requireAdmin, categoryController.createCategory);
-
-// Update category (admin only)
-router.put('/:id', auth.authenticateJWT, auth.requireAdmin, categoryController.updateCategory);
-
-// Delete category (admin only)
-router.delete('/:id', auth.authenticateJWT, auth.requireAdmin, categoryController.deleteCategory);
+// Protect all other routes (admin only + CSRF)
+router.post('/', auth.authenticateJWT, auth.requireAdmin, lusca.csrf(), categoryController.createCategory);
+router.put('/:id', auth.authenticateJWT, auth.requireAdmin, lusca.csrf(), categoryController.updateCategory);
+router.delete('/:id', auth.authenticateJWT, auth.requireAdmin, lusca.csrf(), categoryController.deleteCategory);
 
 module.exports = router;
