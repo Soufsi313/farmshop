@@ -17,6 +17,8 @@ const securityMiddleware = require('./config/securityMiddleware');
 const lusca = require('lusca');
 const session = require('express-session');
 const blogCommentRoutes = require('./routes/blogCommentRoutes');
+const productLikeRoutes = require('./routes/productLikeRoutes');
+const path = require('path');
 
 const app = express();
 
@@ -80,6 +82,12 @@ app.use('/messages', messagesRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/special-offers', specialOfferRoutes);
 app.use('/blog-comments', blogCommentRoutes);
+app.use('/product-likes', productLikeRoutes);
+
+// Fallback SPA : sert index.html du dossier client/public UNIQUEMENT pour les routes qui ne commencent PAS par une route API connue
+app.get(/^\/(?!api|products|categories|special-offers|users|orders|wishlist|cart-location|contact|newsletter|locations|cookies|messages|blogs|blog-comments|uploads)(.*)/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'client', 'public', 'index.html'));
+});
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;
