@@ -1,5 +1,7 @@
 const Cart = require('../models/Cart');
 const Product = require('../models/Products');
+const CartItem = require('../models/CartItem');
+const SpecialOffer = require('../models/SpecialOffer');
 
 const cartController = {
     // Ajouter un produit au panier
@@ -30,7 +32,10 @@ const cartController = {
         try {
             const cart = await Cart.findAll({
                 where: { userId, status: 'pending' },
-                include: [{ model: Product }],
+                include: [{
+                    model: Product,
+                    include: [{ model: SpecialOffer, as: 'specialOffer', required: false }]
+                }],
             });
             return cart;
         } catch (error) {
@@ -66,6 +71,45 @@ const cartController = {
         } catch (error) {
             throw error;
         }
+    },
+
+    // Récupérer ou créer le panier en cours de l'utilisateur
+    getOrCreateUserCart: async (userId, createIfNotFound = true) => {
+        let cart = await Cart.findOne({
+            where: { userId, status: 'pending' },
+            include: [{
+                model: CartItem,
+                as: 'CartItems',
+                include: [{
+                  model: Product,
+                  include: [{ model: SpecialOffer, as: 'specialOffer', required: false }]
+                }]
+            }],
+        });
+        if (!cart && createIfNotFound) {
+            cart = await Cart.create({ userId, status: 'pending' });
+        }
+        return cart;
+    },
+
+    // Ajouter un article dans CartItem (panier d’achat)
+    addCartItem: async (userId, productId, quantity) => {
+        // 1. Récupérer ou créer le panier global
+        let cart = await Cart.findOne({ where: { userId, status: 'pending' } });
+        if (!cart) {
+            cart = await Cart.create({ userId, status: 'pending' });
+        }
+        // 2. Vérifier si l’article existe déjà dans le panier
+        let item = await CartItem.findOne({ where: { cartId: cart.id, productId } });
+        if (item) {
+            // Si déjà présent, on incrémente la quantité
+            item.quantity += quantity;
+            await item.save();
+        } else {
+            // Sinon, on crée la ligne
+            item = await CartItem.create({ cartId: cart.id, productId, quantity });
+        }
+        return item;
     },
 };
 

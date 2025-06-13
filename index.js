@@ -19,6 +19,8 @@ const session = require('express-session');
 const blogCommentRoutes = require('./routes/blogCommentRoutes');
 const productLikeRoutes = require('./routes/productLikeRoutes');
 const path = require('path');
+const cartRoutes = require('./routes/cartRoutes');
+const cartItemRoutes = require('./routes/cartItemRoutes');
 
 const app = express();
 
@@ -83,6 +85,8 @@ app.use('/categories', categoryRoutes);
 app.use('/special-offers', specialOfferRoutes);
 app.use('/blog-comments', blogCommentRoutes);
 app.use('/product-likes', productLikeRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/cartitem', cartItemRoutes);
 
 // Fallback SPA : sert index.html du dossier client/public UNIQUEMENT pour les routes qui ne commencent PAS par une route API connue
 app.get(/^\/(?!api|products|categories|special-offers|users|orders|wishlist|cart-location|contact|newsletter|locations|cookies|messages|blogs|blog-comments|uploads)(.*)/, (req, res) => {

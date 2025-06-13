@@ -1,4 +1,5 @@
 const CartItem = require('../models/CartItem');
+const cartController = require('./cartController');
 
 module.exports = {
   // Get all cart items for a user/cart
@@ -15,8 +16,10 @@ module.exports = {
   // Add a product to cart
   async add(req, res) {
     try {
-      const { cartId, productId, quantity } = req.body;
-      const item = await CartItem.create({ cartId, productId, quantity });
+      const userId = req.user.id;
+      const { productId, quantity } = req.body;
+      // Utilise la logique centralisée (création panier + ajout/incrémentation ligne)
+      const item = await cartController.addCartItem(userId, productId, quantity);
       res.status(201).json(item);
     } catch (err) {
       res.status(500).json({ error: err.message });

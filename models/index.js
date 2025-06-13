@@ -14,10 +14,22 @@ const Messages = require('./Messages');
 const Category = require('./Category');
 const SpecialOffer = require('./SpecialOffer');
 const BlogComment = require('./BlogComment');
+const CartItem = require('./CartItem');
 
 // Associations
 Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
+
+// Associations panier global <-> lignes du panier
+Cart.hasMany(CartItem, { foreignKey: 'cartId', as: 'CartItems' });
+CartItem.belongsTo(Cart, { foreignKey: 'cartId' });
+// Association ligne du panier <-> produit
+CartItem.belongsTo(Product, { foreignKey: 'productId' });
+Product.hasMany(CartItem, { foreignKey: 'productId' });
+
+// Association offre spéciale <-> produit
+Product.hasOne(SpecialOffer, { foreignKey: 'productId', as: 'specialOffer' });
+SpecialOffer.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
 // Synchronisation des modèles avec la base de données
 sequelize.sync({ alter: true })

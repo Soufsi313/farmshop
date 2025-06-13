@@ -11,6 +11,7 @@ import EmailValidation from './pages/EmailValidation';
 import AchatProducts from './pages/AchatProducts';
 import AchatProductDetail from './pages/AchatProductDetail';
 import Wishlist from './pages/Wishlist';
+import CartAchat from './pages/CartAchat';
 import React, { useState, createContext } from 'react';
 
 export const CartWishlistContext = createContext();
@@ -40,6 +41,8 @@ function App() {
             <Route path="/produits/achat" element={<AchatProducts />} />
             <Route path="/produits/achat/:id" element={<AchatProductDetail />} />
             <Route path="/wishlist" element={<Wishlist />} />
+            <Route path="/panier-achat" element={<CartAchat />} />
+            <Route path="/panier/achat" element={<CartAchat />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Footer />

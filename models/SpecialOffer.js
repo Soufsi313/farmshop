@@ -1,6 +1,5 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const Product = require('./Products');
 
 const SpecialOffer = sequelize.define('SpecialOffer', {
     name: {
@@ -34,9 +33,5 @@ const SpecialOffer = sequelize.define('SpecialOffer', {
 }, {
     timestamps: true,
 });
-
-// Association: One offer belongs to one product, one product can have one offer at a time
-SpecialOffer.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
-Product.hasOne(SpecialOffer, { foreignKey: 'productId', as: 'specialOffer' });
 
 module.exports = SpecialOffer;

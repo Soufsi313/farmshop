@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getUserCart, addCartItem } from '../utils/cartApi';
 
 function AchatProducts() {
   const [products, setProducts] = useState([]);
@@ -35,10 +36,30 @@ function AchatProducts() {
     setQuantities(q => ({ ...q, [productId]: qty }));
   };
 
-  const handleAddToCart = (e, product) => {
+  const handleAddToCart = async (e, product) => {
     e.stopPropagation();
-    // TODO: Ajouter la logique d'ajout au panier ici
-    alert(`Produit ajouté: ${product.name} x${quantities[product.id] || 1}`);
+    const userStr = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    const qty = quantities[product.id] || 1;
+    if (userStr && token) {
+      try {
+        // Récupérer ou créer le panier en base
+        const cart = await getUserCart(token);
+        console.log('Cart reçu pour ajout au panier:', cart); // DEBUG
+        if (!cart || !cart.id) {
+          alert('Erreur : panier non trouvé ou id manquant.');
+          return;
+        }
+        // Ajouter l’item au panier en base
+        await addCartItem(token, cart.id, product.id, qty);
+        alert(`Produit ajouté au panier : ${product.name} x${qty}`);
+      } catch (err) {
+        alert('Erreur lors de l’ajout au panier : ' + err.message);
+      }
+    } else {
+      // Fallback : panier local (non connecté)
+      alert(`Produit ajouté: ${product.name} x${qty}`);
+    }
   };
 
   // Début utilitaire offre spéciale
@@ -69,10 +90,10 @@ function AchatProducts() {
                 style={{ minWidth: 320, maxWidth: 420, flex: '1 1 350px', height: 220, cursor: 'pointer', justifyContent: 'space-between', position: 'relative' }}
                 onClick={() => navigate(`/produits/achat/${product.id}`)}
               >
-                {isSpecialOfferActive() && product.specialOfferActive && (
+                {isSpecialOfferActive() && product.specialOfferActive && product.specialOffer && (
                   <div style={{position:'absolute',top:10,left:10,zIndex:2}}>
                     <span className="badge bg-danger text-white px-3 py-2" style={{fontSize:'1em',boxShadow:'0 2px 8px #d9534f44',borderRadius:8}}>
-                      Offre spéciale : 5% dès 2kg (13-16 juin)
+                      {product.specialOffer.description || `Offre spéciale : ${product.specialOffer.discountValue}${product.specialOffer.discountType === 'percentage' ? '%' : '€'} dès ${product.specialOffer.minQuantity}${product.symbol || ''}`}
                     </span>
                   </div>
                 )}

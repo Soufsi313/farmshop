@@ -2,6 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaHeart, FaShareAlt, FaArrowLeft, FaShoppingCart, FaRegStar, FaStar, FaFacebook, FaWhatsapp, FaTwitter } from 'react-icons/fa';
 import { CartWishlistContext } from '../App';
+import { getUserCart, addCartItem } from '../utils/cartApi';
 
 function AchatProductDetail() {
   const { id } = useParams();
@@ -112,9 +113,22 @@ function AchatProductDetail() {
     setShowShareMenu(false);
   };
 
-  const handleAddToCart = () => {
-    setCartAchatCount(c => c + 1);
-    alert(`Ajouté au panier : ${quantity} x ${product.name}`);
+  const handleAddToCart = async () => {
+    const userStr = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    if (userStr && token) {
+      try {
+        const cart = await getUserCart(token);
+        await addCartItem(token, cart.id, product.id, quantity);
+        setCartAchatCount(c => c + 1);
+        alert(`Ajouté au panier : ${quantity} x ${product.name}`);
+      } catch (err) {
+        alert('Erreur lors de l’ajout au panier : ' + err.message);
+      }
+    } else {
+      setCartAchatCount(c => c + 1);
+      alert(`Ajouté au panier : ${quantity} x ${product.name}`);
+    }
   };
 
   const handleAddToWishlist = async () => {
@@ -223,10 +237,10 @@ function AchatProductDetail() {
                     {wishlistAdded ? <FaStar className="me-2" style={{color:'#ffc107'}} /> : <FaRegStar className="me-2" />} {wishlistAdded ? 'Ajouté' : 'Wishlist'}
                   </button>
                 </div>
-                {isSpecialOfferActive() && product?.specialOfferActive && (
+                {isSpecialOfferActive() && product?.specialOfferActive && product?.specialOffer && (
                   <div className="mb-3">
                     <span className="badge bg-danger text-white px-4 py-3" style={{fontSize:'1.15em',boxShadow:'0 2px 8px #d9534f44',borderRadius:10}}>
-                      Offre spéciale : 5% de réduction à l'achat de 2kg (13-16 juin)
+                      {product.specialOffer.description || `Offre spéciale : ${product.specialOffer.discountValue}${product.specialOffer.discountType === 'percentage' ? '%' : '€'} dès ${product.specialOffer.minQuantity}${product.symbol || ''}`}
                     </span>
                   </div>
                 )}
