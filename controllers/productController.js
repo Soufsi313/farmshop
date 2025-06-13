@@ -1,6 +1,8 @@
 const { Op } = require('sequelize');
 const Product = require('../models/Products');
+const ProductLike = require('../models/ProductLike');
 const wishlistController = require('./wishlistController');
+const SpecialOffer = require('../models/SpecialOffer');
 
 const productController = {
     // Ajouter un produit
@@ -52,9 +54,13 @@ const productController = {
     // Liker et partager un produit
     likeAndShareProduct: async (productId, userId) => {
         try {
+            console.log('Début likeAndShareProduct', { productId, userId });
+            const [like, created] = await ProductLike.findOrCreate({ where: { userId, productId } });
+            console.log('Résultat findOrCreate ProductLike:', { like, created });
             console.log(`Produit ${productId} liké et partagé par l’utilisateur ${userId}.`);
         } catch (error) {
             console.error('Erreur lors du like et du partage du produit :', error);
+            throw error;
         }
     },
 
@@ -73,13 +79,31 @@ const productController = {
             if (categoryId) {
                 where.categoryId = categoryId;
             }
+            // Inclure l’offre spéciale active (si existante)
+            const now = new Date();
             const { count, rows } = await Product.findAndCountAll({
                 where,
                 order: [[orderBy, orderDir]],
                 offset,
-                limit: parseInt(limit)
+                limit: parseInt(limit),
+                include: [{
+                    model: SpecialOffer,
+                    as: 'specialOffer',
+                    required: false,
+                    where: {
+                        startDate: { [Op.lte]: now },
+                        endDate: { [Op.gt]: now }
+                    }
+                }]
             });
-            res.json({ products: rows, total: count });
+            // On renvoie specialOffer seulement si elle existe et active
+            const products = rows.map(p => {
+                const prod = p.toJSON();
+                prod.specialOfferActive = !!prod.specialOffer;
+                prod.specialOffer = prod.specialOffer || null;
+                return prod;
+            });
+            res.json({ products, total: count });
         } catch (err) {
             res.status(500).json({ message: err.message });
         }
@@ -89,10 +113,20 @@ const productController = {
     getProductById: async (req, res) => {
         try {
             const id = req.params.id;
-            const product = await Product.findByPk(id);
+            const now = new Date();
+            const product = await Product.findByPk(id, {
+                include: [{
+                    model: SpecialOffer,
+                    as: 'specialOffer',
+                    required: false,
+                    where: {
+                        startDate: { [Op.lte]: now },
+                        endDate: { [Op.gt]: now }
+                    }
+                }]
+            });
             if (!product) return res.status(404).json({ message: 'Produit introuvable.' });
             let prod = product.toJSON();
-            // Correction galleryImages : toujours un tableau
             if (typeof prod.galleryImages === 'string') {
                 try {
                     prod.galleryImages = JSON.parse(prod.galleryImages);
@@ -102,9 +136,36 @@ const productController = {
             } else if (!Array.isArray(prod.galleryImages)) {
                 prod.galleryImages = [];
             }
+            prod.specialOfferActive = !!prod.specialOffer;
+            prod.specialOffer = prod.specialOffer || null;
             res.json({ product: { ...prod, likeCount: prod.likeCount || 0 } });
         } catch (err) {
             res.status(500).json({ message: err.message });
+        }
+    },
+
+    // Mettre à jour un produit
+    updateProduct: async (id, productData) => {
+        try {
+            const product = await Product.findByPk(id);
+            if (!product) throw new Error('Produit non trouvé');
+            // Si mainImage ou galleryImages sont fournis, on les met à jour, sinon on garde l'existant
+            if (productData.mainImage !== undefined && productData.mainImage !== null) {
+                product.mainImage = productData.mainImage;
+            }
+            if (productData.galleryImages !== undefined) {
+                product.galleryImages = productData.galleryImages;
+            }
+            // Mettre à jour les autres champs
+            Object.keys(productData).forEach(key => {
+                if (key !== 'mainImage' && key !== 'galleryImages') {
+                    product[key] = productData[key];
+                }
+            });
+            await product.save();
+        } catch (error) {
+            console.error('Erreur lors de la modification du produit :', error);
+            throw error;
         }
     },
 };

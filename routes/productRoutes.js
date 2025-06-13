@@ -3,6 +3,7 @@ const productController = require('../controllers/productController');
 const lusca = require('lusca');
 const auth = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
+const productUpload = require('../middleware/productUpload');
 
 const router = express.Router();
 
@@ -10,23 +11,105 @@ const router = express.Router();
 router.post('/add',
     auth.authenticateJWT,
     lusca.csrf(),
-    [
-        body('name').isString().notEmpty(),
-        body('price').isFloat({ min: 0 }),
-        body('category').isString().notEmpty(),
-        body('symbol').isIn(['Au kg', 'À la pièce', 'Au litre']),
-        body('criticalThreshold').isInt({ min: 0 }),
-    ],
+    productUpload.fields([
+      { name: 'mainImage', maxCount: 1 },
+      { name: 'galleryImages', maxCount: 10 }
+    ]),
     async (req, res) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({ errors: errors.array() });
-        }
         try {
-            await productController.addProduct(req.body);
-            res.status(201).send('Produit ajouté avec succès.');
+            // Construction des données produit à partir de req.body et des fichiers uploadés
+            const data = { ...req.body };
+            if (req.files && req.files.mainImage && req.files.mainImage[0]) {
+                data.mainImage = '/uploads/' + req.files.mainImage[0].filename;
+            }
+            if (req.files && req.files.galleryImages) {
+                data.galleryImages = req.files.galleryImages.map(f => '/uploads/' + f.filename);
+            }
+            // Conversion des champs numériques
+            // galleryImages doit être null si aucune image n'est uploadée
+            if (!data.galleryImages) data.galleryImages = null;
+            // isAvailable doit être booléen
+            if (typeof data.isAvailable === 'string') {
+                data.isAvailable = data.isAvailable === 'true' || data.isAvailable === 'on' || data.isAvailable === '1';
+            }
+            // criticalThreshold et autres champs numériques
+            if (data.criticalThreshold !== undefined && data.criticalThreshold !== null && data.criticalThreshold !== '') {
+                data.criticalThreshold = parseInt(data.criticalThreshold);
+            } else {
+                data.criticalThreshold = 0;
+            }
+            if (data.price !== undefined && data.price !== null && data.price !== '') {
+                data.price = parseFloat(data.price);
+            } else {
+                data.price = 0;
+            }
+            if (data.quantity !== undefined && data.quantity !== null && data.quantity !== '') {
+                data.quantity = parseInt(data.quantity);
+            } else {
+                data.quantity = 0;
+            }
+            if (data.categoryId !== undefined && data.categoryId !== null && data.categoryId !== '') {
+                data.categoryId = parseInt(data.categoryId);
+            } else {
+                data.categoryId = null;
+            }
+            // Supprimer le champ id si présent (pour éviter 'null' explicite ou string 'null')
+            if (data.id === undefined || data.id === null || data.id === 'null' || data.id === '') {
+                delete data.id;
+            }
+            await productController.addProduct(data);
+            res.status(201).json({ message: 'Produit ajouté avec succès.' });
         } catch (error) {
-            res.status(400).send(error.message);
+            res.status(400).json({ message: error.message });
+        }
+    }
+);
+
+// Modifier un produit (update)
+router.put('/:id',
+    auth.authenticateJWT,
+    lusca.csrf(),
+    productUpload.fields([
+      { name: 'mainImage', maxCount: 1 },
+      { name: 'galleryImages', maxCount: 10 }
+    ]),
+    async (req, res) => {
+        try {
+            const data = { ...req.body };
+            if (req.files && req.files.mainImage && req.files.mainImage[0]) {
+                data.mainImage = '/uploads/' + req.files.mainImage[0].filename;
+            }
+            if (req.files && req.files.galleryImages) {
+                data.galleryImages = req.files.galleryImages.map(f => '/uploads/' + f.filename);
+            }
+            if (!data.galleryImages) data.galleryImages = null;
+            if (typeof data.isAvailable === 'string') {
+                data.isAvailable = data.isAvailable === 'true' || data.isAvailable === 'on' || data.isAvailable === '1';
+            }
+            if (data.criticalThreshold !== undefined && data.criticalThreshold !== null && data.criticalThreshold !== '') {
+                data.criticalThreshold = parseInt(data.criticalThreshold);
+            } else {
+                data.criticalThreshold = 0;
+            }
+            if (data.price !== undefined && data.price !== null && data.price !== '') {
+                data.price = parseFloat(data.price);
+            } else {
+                data.price = 0;
+            }
+            if (data.quantity !== undefined && data.quantity !== null && data.quantity !== '') {
+                data.quantity = parseInt(data.quantity);
+            } else {
+                data.quantity = 0;
+            }
+            if (data.categoryId !== undefined && data.categoryId !== null && data.categoryId !== '') {
+                data.categoryId = parseInt(data.categoryId);
+            } else {
+                data.categoryId = null;
+            }
+            await productController.updateProduct(req.params.id, data);
+            res.status(200).json({ message: 'Produit modifié avec succès.' });
+        } catch (error) {
+            res.status(400).json({ message: error.message });
         }
     }
 );
@@ -72,6 +155,19 @@ router.post('/like-share', lusca.csrf(), async (req, res) => {
         res.status(200).send('Produit liké et partagé.');
     } catch (error) {
         res.status(400).send(error.message);
+    }
+});
+
+// Liste paginée, triée, filtrée, recherche produits
+router.get('/', productController.getProducts);
+
+// Récupérer un produit par ID (public)
+router.get('/:id', async (req, res) => {
+    try {
+        const product = await require('../controllers/productController').getProductById(req, res);
+        // getProductById doit gérer la réponse (res.json)
+    } catch (error) {
+        res.status(400).json({ message: error.message });
     }
 });
 

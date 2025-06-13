@@ -11,32 +11,41 @@ import EmailValidation from './pages/EmailValidation';
 import AchatProducts from './pages/AchatProducts';
 import AchatProductDetail from './pages/AchatProductDetail';
 import Wishlist from './pages/Wishlist';
+import React, { useState, createContext } from 'react';
+
+export const CartWishlistContext = createContext();
 
 function NotFound() {
   return <h2>404 - Page non trouvée</h2>;
 }
 
 function App() {
+  const [cartAchatCount, setCartAchatCount] = useState(0);
+  const [cartLocationCount, setCartLocationCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
+
   return (
-    <Router>
-      <Navbar />
-      <div className="App">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/email-validation" element={<EmailValidation />} />
-          <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/achat-products" element={<AchatProducts />} />
-          <Route path="/produits/achat" element={<AchatProducts />} />
-          <Route path="/produits/achat/:id" element={<AchatProductDetail />} />
-          <Route path="/wishlist" element={<Wishlist />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Footer />
-      </div>
-    </Router>
+    <CartWishlistContext.Provider value={{ cartAchatCount, setCartAchatCount, cartLocationCount, setCartLocationCount, wishlistCount, setWishlistCount }}>
+      <Router>
+        <Navbar />
+        <div className="App">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/email-validation" element={<EmailValidation />} />
+            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/achat-products" element={<AchatProducts />} />
+            <Route path="/produits/achat" element={<AchatProducts />} />
+            <Route path="/produits/achat/:id" element={<AchatProductDetail />} />
+            <Route path="/wishlist" element={<Wishlist />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <Footer />
+        </div>
+      </Router>
+    </CartWishlistContext.Provider>
   );
 }
 

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaHeart, FaShareAlt, FaArrowLeft, FaShoppingCart, FaRegStar } from 'react-icons/fa';
+import { FaHeart, FaShareAlt, FaArrowLeft, FaShoppingCart, FaRegStar, FaStar, FaFacebook, FaWhatsapp, FaTwitter } from 'react-icons/fa';
+import { CartWishlistContext } from '../App';
 
 function AchatProductDetail() {
   const { id } = useParams();
@@ -14,6 +15,8 @@ function AchatProductDetail() {
   const [mainImage, setMainImage] = useState(null);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [wishlistAdded, setWishlistAdded] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const { setCartAchatCount, setWishlistCount, wishlistCount } = useContext(CartWishlistContext);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -24,7 +27,6 @@ function AchatProductDetail() {
         const data = await res.json();
         if (res.ok) {
           setProduct(data.product || null);
-          setLikeCount(data.product?.likeCount || 0);
           setMainImage(data.product?.mainImage ? `http://localhost:3000${data.product.mainImage}` : null);
         } else {
           setError(data.message || 'Produit introuvable.');
@@ -35,36 +37,83 @@ function AchatProductDetail() {
       setLoading(false);
     };
     fetchProduct();
-  }, [id]);
+
+    // Récupère le nombre de likes réel depuis l'API
+    const fetchLikeCount = async () => {
+      try {
+        const res = await fetch(`http://localhost:3000/product-likes/count/${id}`);
+        const data = await res.json();
+        setLikeCount(data.likeCount || 0);
+      } catch {
+        setLikeCount(0);
+      }
+    };
+    fetchLikeCount();
+
+    // Vérifie si le produit est déjà dans la wishlist
+    const checkWishlist = async () => {
+      const userStr = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      if (!userStr || !token) return;
+      const user = JSON.parse(userStr);
+      const res = await fetch(`http://localhost:3000/wishlist/${user.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setWishlistCount(data.length);
+        setWishlistAdded(data.some(w => w.Product && w.Product.id === Number(id)));
+      }
+    };
+    checkWishlist();
+  }, [id, setWishlistCount]);
 
   const handleLike = async () => {
     setLikeLoading(true);
     try {
+      // Récupère le token CSRF
+      const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+      const csrfData = await csrfRes.json();
       await fetch('http://localhost:3000/products/like-share', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: id, userId: 1 }) // TODO: replace userId by real user
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfData.csrfToken
+        },
+        credentials: 'include',
+        body: JSON.stringify({ productId: id, userId: 1 }) // TODO: remplacer userId par le vrai user
       });
-      setLikeCount(likeCount + 1);
+      const newCount = likeCount + 1;
+      setLikeCount(newCount);
+      localStorage.setItem(`likeCount_${id}`, newCount);
+
+      // Après le like, recharge le compteur réel
+      const res = await fetch(`http://localhost:3000/product-likes/count/${id}`);
+      const data = await res.json();
+      setLikeCount(data.likeCount || 0);
     } catch {}
     setLikeLoading(false);
   };
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: product.name,
-        text: product.description,
-        url: window.location.href
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Lien copié dans le presse-papier !');
-    }
+  const handleShareMenu = (e) => {
+    e.preventDefault();
+    setShowShareMenu((v) => !v);
+  };
+
+  const handleShareNetwork = (network) => {
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent(product?.name || '');
+    let shareUrl = '';
+    if (network === 'facebook') shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+    if (network === 'twitter') shareUrl = `https://twitter.com/intent/tweet?url=${url}&text=${text}`;
+    if (network === 'whatsapp') shareUrl = `https://wa.me/?text=${text}%20${url}`;
+    window.open(shareUrl, '_blank');
+    setShowShareMenu(false);
   };
 
   const handleAddToCart = () => {
-    // TODO: call backend to add to cart
+    setCartAchatCount(c => c + 1);
     alert(`Ajouté au panier : ${quantity} x ${product.name}`);
   };
 
@@ -92,11 +141,23 @@ function AchatProductDetail() {
         credentials: 'include',
         body: JSON.stringify({ productId: id, userId: user.id })
       });
-      if (res.ok) setWishlistAdded(true);
+      if (res.ok) {
+        setWishlistAdded(true);
+        setWishlistCount(c => c + 1);
+      }
       else alert('Erreur lors de l’ajout à la wishlist.');
     } catch {}
     setWishlistLoading(false);
   };
+
+  // Début utilitaire offre spéciale
+  const isSpecialOfferActive = () => {
+    const now = new Date();
+    const start = new Date('2025-06-13T00:00:00');
+    const end = new Date('2025-06-16T00:00:00');
+    return now >= start && now < end;
+  };
+  // Fin utilitaire offre spéciale
 
   if (loading) return <div className="text-center py-5"><div className="spinner-border text-success" role="status"><span className="visually-hidden">Chargement...</span></div></div>;
   if (error || !product) return <div className="alert alert-danger text-center my-5">{error || 'Produit introuvable.'}</div>;
@@ -132,21 +193,43 @@ function AchatProductDetail() {
               <div className="col-12 col-md-6">
                 <h2 className="fw-bold text-success mb-4" style={{ fontSize: '2.7rem' }}>{product.name}</h2>
                 <div className="mb-4">
-                  <span className="fw-bold" style={{fontSize:'2.5rem'}}>{product.price} € <span className="text-secondary" style={{fontSize:'1.7rem'}}>{product.symbol}</span></span>
+                  <span className="fw-bold" style={{fontSize:'2.5rem'}}>{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(product.price)} <span className="text-secondary" style={{fontSize:'1.7rem'}}>{product.symbol}</span></span>
                   <span className="badge bg-light text-dark border border-1 ms-4" style={{fontSize:'1.3rem', padding:'0.7em 1.2em'}}>{product.quantity > 0 ? `Stock : ${product.quantity}` : 'Rupture'}</span>
                 </div>
-                <p className="text-muted mb-5" style={{fontSize:'1.35rem'}}>{product.description}</p>
-                <div className="d-flex align-items-center gap-3 mb-4">
+                <div className="text-muted mb-5" style={{fontSize:'1.35rem'}} dangerouslySetInnerHTML={{ __html: product.description }} />
+                <div className="d-flex align-items-center gap-3 mb-4" style={{position:'relative'}}>
                   <button className="btn btn-outline-danger d-flex align-items-center px-3 py-2" onClick={handleLike} disabled={likeLoading} title="J'aime" style={{fontSize:'1.1rem'}}>
                     <FaHeart className="me-2" /> {likeCount}
                   </button>
-                  <button className="btn btn-outline-primary d-flex align-items-center px-3 py-2" onClick={handleShare} title="Partager" style={{fontSize:'1.1rem'}}>
-                    <FaShareAlt className="me-2" /> Partager
-                  </button>
+                  <div style={{position:'relative'}}>
+                    <button className="btn btn-outline-primary d-flex align-items-center px-3 py-2" onClick={handleShareMenu} title="Partager" style={{fontSize:'1.1rem'}}>
+                      <FaShareAlt className="me-2" /> Partager
+                    </button>
+                    {showShareMenu && (
+                      <div className="card shadow-sm p-2" style={{position:'absolute',top:'110%',left:0,zIndex:10,minWidth:220}}>
+                        <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => handleShareNetwork('facebook')}>
+                          <FaFacebook style={{color:'#1877f3', fontSize:'1.3em'}} /> <span>Partager sur Facebook</span>
+                        </button>
+                        <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => handleShareNetwork('whatsapp')}>
+                          <FaWhatsapp style={{color:'#25d366', fontSize:'1.3em'}} /> <span>Partager sur WhatsApp</span>
+                        </button>
+                        <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => handleShareNetwork('twitter')}>
+                          <FaTwitter style={{color:'#1da1f2', fontSize:'1.3em'}} /> <span>Partager sur Twitter</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <button className={`btn btn-outline-warning d-flex align-items-center px-3 py-2${wishlistAdded ? ' active' : ''}`} onClick={handleAddToWishlist} disabled={wishlistLoading || wishlistAdded} title="Ajouter à la wishlist" style={{fontSize:'1.1rem'}}>
-                    <FaRegStar className="me-2" /> {wishlistAdded ? 'Ajouté' : 'Wishlist'}
+                    {wishlistAdded ? <FaStar className="me-2" style={{color:'#ffc107'}} /> : <FaRegStar className="me-2" />} {wishlistAdded ? 'Ajouté' : 'Wishlist'}
                   </button>
                 </div>
+                {isSpecialOfferActive() && product?.specialOfferActive && (
+                  <div className="mb-3">
+                    <span className="badge bg-danger text-white px-4 py-3" style={{fontSize:'1.15em',boxShadow:'0 2px 8px #d9534f44',borderRadius:10}}>
+                      Offre spéciale : 5% de réduction à l'achat de 2kg (13-16 juin)
+                    </span>
+                  </div>
+                )}
                 <div className="d-flex align-items-center gap-4 mb-3">
                   <input type="number" min="1" max={product.quantity} value={quantity} onChange={e => setQuantity(Math.max(1, Math.min(product.quantity, Number(e.target.value))))} className="form-control w-auto" style={{maxWidth:120, fontSize:'1.25rem', height:54}} />
                   <button className="btn btn-success d-flex align-items-center px-5 py-3" onClick={handleAddToCart} disabled={product.quantity === 0} style={{fontSize:'1.25rem'}}>

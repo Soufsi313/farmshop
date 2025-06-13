@@ -1,4 +1,5 @@
 const { Category } = require('../models');
+const { Op } = require('sequelize');
 
 const categoryController = {
     // Create a new category (admin only)
@@ -12,11 +13,26 @@ const categoryController = {
         }
     },
 
-    // Get all categories
+    // Get all categories (with pagination, tri, recherche)
     getAllCategories: async (req, res) => {
         try {
-            const categories = await Category.findAll();
-            res.json({ categories });
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 5;
+            const offset = (page - 1) * limit;
+            const orderBy = req.query.orderBy || 'name';
+            const orderDir = req.query.orderDir === 'DESC' ? 'DESC' : 'ASC';
+            const search = req.query.search || '';
+            const where = {};
+            if (search) {
+                where.name = { [Op.iLike]: `%${search}%` };
+            }
+            const { count, rows } = await Category.findAndCountAll({
+                where,
+                order: [[orderBy, orderDir]],
+                offset,
+                limit
+            });
+            res.json({ categories: rows, total: count });
         } catch (err) {
             res.status(500).json({ message: err.message });
         }

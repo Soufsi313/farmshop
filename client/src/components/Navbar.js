@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { FaHome, FaBoxOpen, FaBlog, FaHeart, FaEnvelope, FaShoppingCart, FaUser, FaCheckCircle, FaSignOutAlt } from 'react-icons/fa';
 import { FaRegStar } from 'react-icons/fa';
+import { CartWishlistContext } from '../App';
 
 function Navbar() {
   // Simule l'état de connexion utilisateur (à remplacer par un vrai contexte ou Redux plus tard)
   const [user, setUser] = useState(null);
+  const { cartAchatCount, cartLocationCount, wishlistCount } = useContext(CartWishlistContext);
 
   useEffect(() => {
     // Vérifie le localStorage pour un token ou un user (à remplacer par une vraie logique JWT)
@@ -80,20 +82,32 @@ function Navbar() {
             )}
             {user && (
               <>
-                <li className="nav-item dropdown">
+                <li className="nav-item dropdown position-relative">
                   <NavLink className={({ isActive }) => 'nav-link dropdown-toggle' + (isActive ? ' active' : '')}
                     to="#" id="panierDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false"
                     style={({ isActive }) => ({ color: isActive ? '#198754' : '#222' })}>
                     <FaShoppingCart className="me-1 mb-1" /> Panier
+                    {(cartAchatCount > 0 || cartLocationCount > 0) && <span className="badge bg-danger position-absolute top-0 start-100 translate-middle" style={{fontSize:'0.8em'}}>{cartAchatCount + cartLocationCount}</span>}
                   </NavLink>
                   <ul className="dropdown-menu" aria-labelledby="panierDropdown">
-                    <li><NavLink className="dropdown-item" to="/panier/achat">Panier d'achat</NavLink></li>
-                    <li><NavLink className="dropdown-item" to="/panier/location">Panier de location</NavLink></li>
+                    <li>
+                      <NavLink className="dropdown-item position-relative" to="/panier/achat">
+                        Panier d'achat
+                        {cartAchatCount > 0 && <span className="badge bg-danger ms-2" style={{fontSize:'0.8em'}}>{cartAchatCount}</span>}
+                      </NavLink>
+                    </li>
+                    <li>
+                      <NavLink className="dropdown-item position-relative" to="/panier/location">
+                        Panier de location
+                        {cartLocationCount > 0 && <span className="badge bg-danger ms-2" style={{fontSize:'0.8em'}}>{cartLocationCount}</span>}
+                      </NavLink>
+                    </li>
                   </ul>
                 </li>
-                <li className="nav-item">
+                <li className="nav-item position-relative">
                   <NavLink className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} to="/wishlist" style={({ isActive }) => ({ color: isActive ? '#ffc107' : '#222' })}>
                     <FaRegStar className="me-1 mb-1" style={{color:'#ffc107'}} /> Wishlist
+                    {wishlistCount > 0 && <span className="badge bg-danger position-absolute top-0 start-100 translate-middle" style={{fontSize:'0.8em'}}>{wishlistCount}</span>}
                   </NavLink>
                 </li>
                 <li className="nav-item">

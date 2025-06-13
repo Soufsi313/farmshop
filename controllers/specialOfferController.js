@@ -46,8 +46,20 @@ const specialOfferController = {
     // Get all offers (admin)
     getAllOffers: async (req, res) => {
         try {
-            const offers = await SpecialOffer.findAll({ include: [{ model: Products, as: 'product' }] });
-            res.json({ offers });
+            const { page = 1, limit = 5, orderBy = 'startDate', orderDir = 'DESC', search = '' } = req.query;
+            const offset = (parseInt(page) - 1) * parseInt(limit);
+            const where = {};
+            if (search && search.trim() !== '') {
+                where.name = { [Op.iLike]: `%${search}%` };
+            }
+            const { count, rows } = await SpecialOffer.findAndCountAll({
+                where,
+                include: [{ model: Products, as: 'product' }],
+                order: [[orderBy, orderDir]],
+                offset,
+                limit: parseInt(limit)
+            });
+            res.json({ offers: rows, total: count });
         } catch (err) {
             res.status(500).json({ message: err.message });
         }
