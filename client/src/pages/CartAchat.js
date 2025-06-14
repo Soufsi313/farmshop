@@ -67,8 +67,16 @@ function CartAchat() {
 
   const total = cartAchat.reduce((sum, item) => sum + getLineTotal(item), 0);
 
-  const handleRemove = (id) => {
-    setCartAchat(cartAchat.filter(item => item.id !== id));
+  const handleRemove = async (id) => {
+    const token = localStorage.getItem('token');
+    try {
+      await import('../utils/cartApi').then(api => api.removeCartItem(token, id));
+      // Recharge le panier après suppression
+      const cart = await getUserCart(token);
+      setCartAchat(cart.CartItems || []);
+    } catch (err) {
+      alert('Erreur lors de la suppression de l\'article : ' + err.message);
+    }
   };
 
   const handleQuantityChange = (itemId, value) => {
@@ -91,16 +99,6 @@ function CartAchat() {
   return (
     <div className="container py-5">
       <h1 className="mb-5 text-success text-center display-4 fw-bold">Mon panier d'achat</h1>
-      <div className="card shadow-sm mb-4" style={{maxWidth:700,margin:'0 auto',borderRadius:12,border:'1px solid #e0e0e0'}}>
-        <div className="card-body bg-light">
-          <ul className="list-unstyled text-center small mb-0">
-            <li className="mb-1"><strong>TVA incluse :</strong> Tous nos prix incluent la TVA.</li>
-            <li className="mb-1"><strong>Livraison :</strong> Les frais de livraison seront calculés à l’étape suivante.</li>
-            <li className="mb-1"><strong>Paiement sécurisé :</strong> Le paiement en ligne est 100 % sécurisé.</li>
-            <li className="mb-1"><strong>Droit de rétractation :</strong> Vous disposez d’un droit de rétractation de 14 jours (sauf denrées périssables).</li>
-          </ul>
-        </div>
-      </div>
       {cartAchat.length === 0 ? (
         <div className="alert alert-info text-center">Votre panier est vide.</div>
       ) : (
@@ -161,12 +159,19 @@ function CartAchat() {
                         type="number"
                         min={1}
                         value={quantities[item.id] ?? item.quantity}
-                        onChange={e => handleQuantityChange(item.id, e.target.value)}
+                        onChange={async e => {
+                          const qty = Math.max(1, Number(e.target.value));
+                          setQuantities(q => ({ ...q, [item.id]: qty }));
+                          try {
+                            await updateCartItem(token, item.id, qty);
+                            const cart = await getUserCart(token);
+                            setCartAchat(cart.CartItems || []);
+                          } catch (err) {
+                            alert('Erreur lors de la modification de la quantité : ' + err.message);
+                          }
+                        }}
                         style={{ width: 60 }}
                       />
-                      <button className="btn btn-outline-primary btn-sm ms-2" onClick={() => handleQuantityUpdate(item)}>
-                        Modifier
-                      </button>
                       {item.Product?.symbol}
                     </td>
                     <td className="fw-bold">
@@ -191,7 +196,21 @@ function CartAchat() {
           </table>
         </div>
       )}
-      <button className="btn btn-secondary mt-4" onClick={() => navigate('/produits/achat')}>Continuer mes achats</button>
+      {/* Boutons d'action */}
+      <div className="d-flex justify-content-between align-items-center mb-4" style={{maxWidth:700,margin:'0 auto'}}>
+        <button className="btn btn-secondary" onClick={() => navigate('/produits/achat')}>Continuer mes achats</button>
+        <button className="btn btn-success" onClick={() => navigate('/checkout')}>Confirmer ma commande</button>
+      </div>
+      <div className="card shadow-sm mb-4" style={{maxWidth:700,margin:'40px auto 0 auto',borderRadius:12,border:'1px solid #e0e0e0'}}>
+        <div className="card-body bg-light">
+          <ul className="list-unstyled text-center small mb-0">
+            <li className="mb-1"><strong>TVA incluse :</strong> Tous nos prix incluent la TVA.</li>
+            <li className="mb-1"><strong>Livraison :</strong> Les frais de livraison seront calculés à l’étape suivante.</li>
+            <li className="mb-1"><strong>Paiement sécurisé :</strong> Le paiement en ligne est 100 % sécurisé.</li>
+            <li className="mb-1"><strong>Droit de rétractation :</strong> Vous disposez d’un droit de rétractation de 14 jours (sauf denrées périssables).</li>
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }
