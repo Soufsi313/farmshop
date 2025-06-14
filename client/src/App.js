@@ -12,7 +12,9 @@ import AchatProducts from './pages/AchatProducts';
 import AchatProductDetail from './pages/AchatProductDetail';
 import Wishlist from './pages/Wishlist';
 import CartAchat from './pages/CartAchat';
+import CheckoutCommande from './pages/CheckoutCommande';
 import React, { useState, createContext } from 'react';
+import StripeWrapper from './StripeWrapper';
 
 export const CartWishlistContext = createContext();
 
@@ -43,6 +45,11 @@ function App() {
             <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/panier-achat" element={<CartAchat />} />
             <Route path="/panier/achat" element={<CartAchat />} />
+            <Route path="/checkout" element={
+              <StripeWrapper>
+                <CheckoutCommande />
+              </StripeWrapper>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Footer />

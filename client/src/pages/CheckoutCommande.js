@@ -3,8 +3,12 @@ import { getUserCart } from '../utils/cartApi';
 import { useNavigate } from 'react-router-dom';
 
 function CheckoutCommande() {
-  const [adresse, setAdresse] = useState('');
+  const [pays, setPays] = useState('');
+  const [adresseRue, setAdresseRue] = useState('');
+  const [codePostal, setCodePostal] = useState('');
+  const [localite, setLocalite] = useState('');
   const [orderItems, setOrderItems] = useState([]);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const tvaRate = 6;
   const navigate = useNavigate();
 
@@ -51,6 +55,56 @@ function CheckoutCommande() {
   }, 0);
   const totalTVA = totalHT * (tvaRate / 100);
   const totalTTC = totalHT + totalTVA;
+  const fraisLivraison = totalTTC < 25 ? 3.5 : 0;
+  const totalTTCFinal = totalTTC + fraisLivraison;
+  const adresseComplete = `${adresseRue}, ${codePostal} ${localite}, ${pays}`;
+
+  // Redirection Stripe Checkout
+  async function handleStripeCheckout() {
+    const token = localStorage.getItem('token');
+    // Préparer les articles pour Stripe Checkout
+    const lineItems = orderItems.map(item => {
+      const price = item.Product?.price ?? 0;
+      const qty = item.quantity;
+      let discount = 0;
+      const offer = getSpecialOffer(item);
+      if (offer && offer.discountType && qty >= (offer.minQuantity || 0)) {
+        if (offer.discountType === 'percentage') {
+          discount = price * (offer.discountValue / 100) * qty;
+        } else if (offer.discountType === 'fixed') {
+          discount = offer.discountValue * qty;
+        }
+      }
+      return {
+        name: item.Product?.name || 'Produit',
+        amount: price - (discount / qty),
+        quantity: qty,
+      };
+    });
+    // Ajouter les frais de livraison si besoin
+    if (fraisLivraison > 0) {
+      lineItems.push({ name: 'Frais de livraison', amount: fraisLivraison, quantity: 1 });
+    }
+    // Appel backend pour créer la session Stripe Checkout
+    const res = await fetch('/api/payment/create-checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        lineItems,
+        successUrl: window.location.origin + '/checkout?success=1',
+        cancelUrl: window.location.origin + '/checkout?canceled=1',
+      }),
+    });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert(data.error || 'Erreur lors de la redirection vers Stripe');
+    }
+  }
 
   return (
     <div className="container py-5">
@@ -60,13 +114,191 @@ function CheckoutCommande() {
       <h1 className="mb-4 text-success">Confirmation de commande</h1>
       <div className="mb-4">
         <label className="form-label fw-bold">Adresse de livraison</label>
-        <textarea
-          className="form-control"
-          rows={3}
-          value={adresse}
-          onChange={e => setAdresse(e.target.value)}
-          placeholder="Renseignez votre adresse de livraison ici..."
-        />
+        <div className="d-flex flex-column gap-2">
+          <select className="form-control" value={pays} onChange={e => setPays(e.target.value)}>
+            <option value="">🌍 Sélectionnez un pays</option>
+            <option value="Afghanistan">Afghanistan</option>
+            <option value="Afrique du Sud">Afrique du Sud</option>
+            <option value="Albanie">Albanie</option>
+            <option value="Algérie">Algérie</option>
+            <option value="Allemagne">Allemagne</option>
+            <option value="Andorre">Andorre</option>
+            <option value="Angola">Angola</option>
+            <option value="Arabie Saoudite">Arabie Saoudite</option>
+            <option value="Argentine">Argentine</option>
+            <option value="Arménie">Arménie</option>
+            <option value="Australie">Australie</option>
+            <option value="Autriche">Autriche</option>
+            <option value="Azerbaïdjan">Azerbaïdjan</option>
+            <option value="Belgique">Belgique</option>
+            <option value="Bénin">Bénin</option>
+            <option value="Biélorussie">Biélorussie</option>
+            <option value="Birmanie">Birmanie</option>
+            <option value="Bolivie">Bolivie</option>
+            <option value="Bosnie-Herzégovine">Bosnie-Herzégovine</option>
+            <option value="Botswana">Botswana</option>
+            <option value="Brésil">Brésil</option>
+            <option value="Bulgarie">Bulgarie</option>
+            <option value="Burkina Faso">Burkina Faso</option>
+            <option value="Burundi">Burundi</option>
+            <option value="Cameroun">Cameroun</option>
+            <option value="Canada">Canada</option>
+            <option value="Chili">Chili</option>
+            <option value="Chine">Chine</option>
+            <option value="Chypre">Chypre</option>
+            <option value="Colombie">Colombie</option>
+            <option value="Comores">Comores</option>
+            <option value="Congo">Congo</option>
+            <option value="Corée du Sud">Corée du Sud</option>
+            <option value="Costa Rica">Costa Rica</option>
+            <option value="Côte d'Ivoire">Côte d'Ivoire</option>
+            <option value="Croatie">Croatie</option>
+            <option value="Cuba">Cuba</option>
+            <option value="Danemark">Danemark</option>
+            <option value="Djibouti">Djibouti</option>
+            <option value="Dominique">Dominique</option>
+            <option value="Égypte">Égypte</option>
+            <option value="Émirats arabes unis">Émirats arabes unis</option>
+            <option value="Équateur">Équateur</option>
+            <option value="Érythrée">Érythrée</option>
+            <option value="Espagne">Espagne</option>
+            <option value="Estonie">Estonie</option>
+            <option value="États-Unis">États-Unis</option>
+            <option value="Éthiopie">Éthiopie</option>
+            <option value="Finlande">Finlande</option>
+            <option value="France">France</option>
+            <option value="Gabon">Gabon</option>
+            <option value="Gambie">Gambie</option>
+            <option value="Géorgie">Géorgie</option>
+            <option value="Ghana">Ghana</option>
+            <option value="Grèce">Grèce</option>
+            <option value="Guatemala">Guatemala</option>
+            <option value="Guinée">Guinée</option>
+            <option value="Guinée-Bissau">Guinée-Bissau</option>
+            <option value="Guinée équatoriale">Guinée équatoriale</option>
+            <option value="Guyana">Guyana</option>
+            <option value="Haïti">Haïti</option>
+            <option value="Honduras">Honduras</option>
+            <option value="Hongrie">Hongrie</option>
+            <option value="Inde">Inde</option>
+            <option value="Indonésie">Indonésie</option>
+            <option value="Irak">Irak</option>
+            <option value="Iran">Iran</option>
+            <option value="Irlande">Irlande</option>
+            <option value="Islande">Islande</option>
+            <option value="Israël">Israël</option>
+            <option value="Italie">Italie</option>
+            <option value="Jamaïque">Jamaïque</option>
+            <option value="Japon">Japon</option>
+            <option value="Jordanie">Jordanie</option>
+            <option value="Kazakhstan">Kazakhstan</option>
+            <option value="Kenya">Kenya</option>
+            <option value="Kirghizistan">Kirghizistan</option>
+            <option value="Kiribati">Kiribati</option>
+            <option value="Koweït">Koweït</option>
+            <option value="Laos">Laos</option>
+            <option value="Lesotho">Lesotho</option>
+            <option value="Lettonie">Lettonie</option>
+            <option value="Liban">Liban</option>
+            <option value="Libéria">Libéria</option>
+            <option value="Libye">Libye</option>
+            <option value="Liechtenstein">Liechtenstein</option>
+            <option value="Lituanie">Lituanie</option>
+            <option value="Luxembourg">Luxembourg</option>
+            <option value="Macédoine">Macédoine</option>
+            <option value="Madagascar">Madagascar</option>
+            <option value="Malaisie">Malaisie</option>
+            <option value="Malawi">Malawi</option>
+            <option value="Maldives">Maldives</option>
+            <option value="Mali">Mali</option>
+            <option value="Malte">Malte</option>
+            <option value="Maroc">Maroc</option>
+            <option value="Marshall">Marshall</option>
+            <option value="Maurice">Maurice</option>
+            <option value="Mauritanie">Mauritanie</option>
+            <option value="Mexique">Mexique</option>
+            <option value="Micronésie">Micronésie</option>
+            <option value="Moldavie">Moldavie</option>
+            <option value="Monaco">Monaco</option>
+            <option value="Mongolie">Mongolie</option>
+            <option value="Monténégro">Monténégro</option>
+            <option value="Mozambique">Mozambique</option>
+            <option value="Namibie">Namibie</option>
+            <option value="Nauru">Nauru</option>
+            <option value="Népal">Népal</option>
+            <option value="Nicaragua">Nicaragua</option>
+            <option value="Niger">Niger</option>
+            <option value="Nigéria">Nigéria</option>
+            <option value="Norvège">Norvège</option>
+            <option value="Nouvelle-Zélande">Nouvelle-Zélande</option>
+            <option value="Oman">Oman</option>
+            <option value="Ouganda">Ouganda</option>
+            <option value="Ouzbékistan">Ouzbékistan</option>
+            <option value="Pakistan">Pakistan</option>
+            <option value="Palaos">Palaos</option>
+            <option value="Palestine">Palestine</option>
+            <option value="Panama">Panama</option>
+            <option value="Papouasie-Nouvelle-Guinée">Papouasie-Nouvelle-Guinée</option>
+            <option value="Paraguay">Paraguay</option>
+            <option value="Pays-Bas">Pays-Bas</option>
+            <option value="Pérou">Pérou</option>
+            <option value="Philippines">Philippines</option>
+            <option value="Pologne">Pologne</option>
+            <option value="Portugal">Portugal</option>
+            <option value="Qatar">Qatar</option>
+            <option value="Roumanie">Roumanie</option>
+            <option value="Royaume-Uni">Royaume-Uni</option>
+            <option value="Russie">Russie</option>
+            <option value="Rwanda">Rwanda</option>
+            <option value="Saint-Kitts-et-Nevis">Saint-Kitts-et-Nevis</option>
+            <option value="Saint-Marin">Saint-Marin</option>
+            <option value="Saint-Vincent-et-les-Grenadines">Saint-Vincent-et-les-Grenadines</option>
+            <option value="Sainte-Lucie">Sainte-Lucie</option>
+            <option value="Salomon">Salomon</option>
+            <option value="Salvador">Salvador</option>
+            <option value="Samoa">Samoa</option>
+            <option value="Sao Tomé-et-Principe">Sao Tomé-et-Principe</option>
+            <option value="Sénégal">Sénégal</option>
+            <option value="Serbie">Serbie</option>
+            <option value="Seychelles">Seychelles</option>
+            <option value="Sierra Leone">Sierra Leone</option>
+            <option value="Singapour">Singapour</option>
+            <option value="Slovaquie">Slovaquie</option>
+            <option value="Slovénie">Slovénie</option>
+            <option value="Somalie">Somalie</option>
+            <option value="Soudan">Soudan</option>
+            <option value="Soudan du Sud">Soudan du Sud</option>
+            <option value="Sri Lanka">Sri Lanka</option>
+            <option value="Suède">Suède</option>
+            <option value="Suisse">Suisse</option>
+            <option value="Suriname">Suriname</option>
+            <option value="Syrie">Syrie</option>
+            <option value="Tadjikistan">Tadjikistan</option>
+            <option value="Tanzanie">Tanzanie</option>
+            <option value="Tchad">Tchad</option>
+            <option value="Thaïlande">Thaïlande</option>
+            <option value="Timor oriental">Timor oriental</option>
+            <option value="Togo">Togo</option>
+            <option value="Tonga">Tonga</option>
+            <option value="Trinité-et-Tobago">Trinité-et-Tobago</option>
+            <option value="Tunisie">Tunisie</option>
+            <option value="Turkménistan">Turkménistan</option>
+            <option value="Turquie">Turquie</option>
+            <option value="Tuvalu">Tuvalu</option>
+            <option value="Ukraine">Ukraine</option>
+            <option value="Uruguay">Uruguay</option>
+            <option value="Vanuatu">Vanuatu</option>
+            <option value="Vatican">Vatican</option>
+            <option value="Venezuela">Venezuela</option>
+            <option value="Viêt Nam">Viêt Nam</option>
+            <option value="Yémen">Yémen</option>
+            <option value="Zambie">Zambie</option>
+            <option value="Zimbabwe">Zimbabwe</option>
+          </select>
+          <input type="text" className="form-control" placeholder="🏠 Adresse (rue, numéro, boîte)" value={adresseRue} onChange={e => setAdresseRue(e.target.value)} />
+          <input type="text" className="form-control" placeholder="🏷️ Code postal" value={codePostal} onChange={e => setCodePostal(e.target.value)} />
+          <input type="text" className="form-control" placeholder="📍 Localité" value={localite} onChange={e => setLocalite(e.target.value)} />
+        </div>
       </div>
       <div className="card mb-4">
         <div className="card-body">
@@ -123,10 +355,23 @@ function CheckoutCommande() {
       </div>
       <div className="mb-3">
         <strong>Total HT :</strong> {totalHT.toFixed(2)} €<br />
-        <strong>TVA ({tvaRate}%) :</strong> {totalTVA.toFixed(2)} €<br />
-        <strong>Total TTC :</strong> {totalTTC.toFixed(2)} €
+        <strong>TVA ({tvaRate}%):</strong> {totalTVA.toFixed(2)} €<br />
+        <strong>Total TTC :</strong> {totalTTC.toFixed(2)} €<br />
+        {fraisLivraison > 0 && (
+          <span className="text-danger"><strong>Frais de livraison :</strong> {fraisLivraison.toFixed(2)} € (offerts dès 25€ d'achat)</span>
+        )}<br />
+        <strong>Total à payer :</strong> {totalTTCFinal.toFixed(2)} €
       </div>
-      <button className="btn btn-success">Valider et payer</button>
+      {!paymentSuccess && (
+        <button className="btn btn-success" onClick={handleStripeCheckout} disabled={orderItems.length === 0 || !pays || !adresseRue || !codePostal || !localite}>
+          Valider et payer
+        </button>
+      )}
+      {paymentSuccess && (
+        <div className="alert alert-success mt-4">
+          Paiement réussi ! Merci pour votre commande.
+        </div>
+      )}
     </div>
   );
 }

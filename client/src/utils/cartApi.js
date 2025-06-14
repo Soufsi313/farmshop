@@ -62,3 +62,21 @@ export async function updateCartItem(token, itemId, quantity) {
   }
   return await res.json();
 }
+
+export async function removeCartItem(token, itemId) {
+  const csrfRes = await fetch('http://localhost:3000/csrf-token', { credentials: 'include' });
+  const csrfData = await csrfRes.json();
+  const res = await fetch(`http://localhost:3000/api/cartitem/${itemId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'x-csrf-token': csrfData.csrfToken,
+    },
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error('Erreur suppression item panier : ' + errorText);
+  }
+  return await res.json();
+}

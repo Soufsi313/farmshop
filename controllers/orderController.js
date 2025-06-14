@@ -9,7 +9,7 @@ const { Op } = require('sequelize');
 // TVA alimentaire
 const TVA_RATE = 6.0;
 
-const orderItemController = {
+const orderController = {
   // Créer une commande à partir du panier
   createOrderFromCart: async (req, res) => {
     try {
@@ -92,4 +92,4 @@ const orderItemController = {
   },
 };
 
-module.exports = orderItemController;
+module.exports = orderController;
