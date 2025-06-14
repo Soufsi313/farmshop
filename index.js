@@ -23,12 +23,20 @@ const cartRoutes = require('./routes/cartRoutes');
 const cartItemRoutes = require('./routes/cartItemRoutes');
 const orderItemRoutes = require('./routes/orderItemRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const stripeWebhookRoutes = require('./routes/stripeWebhookRoutes');
+const orderActionsRoutes = require('./routes/orderActionsRoutes');
 require('dotenv').config(); // Ajout du support .env pour les clés Stripe
 
 const app = express();
 
 // Middleware pour gérer les requêtes JSON
-app.use(express.json());
+app.use((req, res, next) => {
+  if (req.originalUrl === '/webhook/stripe') {
+    next(); // Laisse express.raw gérer le webhook Stripe
+  } else {
+    express.json()(req, res, next);
+  }
+});
 app.use(securityMiddleware);
 
 // Active le mode proxy pour que express-rate-limit fonctionne correctement derrière un proxy (React dev server)
@@ -44,10 +52,20 @@ app.use(session({
 
 // Applique lusca.csrf() sur toutes les requêtes non-GET (PUT, POST, PATCH, DELETE),
 // sauf pour la suppression d'un message d'inbox (DELETE /users/:id/inbox/:msgIndex)
+// et sauf pour les routes Stripe payment (API sécurisée par JWT)
+// et sauf pour le webhook Stripe (pas de CSRF sur /webhook/stripe)
 app.use((req, res, next) => {
   if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
     // Désactive CSRF pour la suppression d'un message d'inbox
     if (req.method === "DELETE" && /^\/users\/\d+\/inbox\/\d+$/.test(req.path)) {
+      return next();
+    }
+    // Désactive CSRF pour les routes Stripe payment
+    if (/^\/api\/payment\//.test(req.path)) {
+      return next();
+    }
+    // Désactive CSRF pour le webhook Stripe
+    if (req.originalUrl === '/webhook/stripe') {
       return next();
     }
     return lusca.csrf()(req, res, next);
@@ -61,6 +79,12 @@ app.use('/uploads', express.static('uploads', {
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
   }
 }));
+
+// Middleware pour capturer le raw body sur /webhook/stripe
+app.use('/webhook/stripe', express.raw({ type: 'application/json' }), (req, res, next) => {
+  req.rawBody = req.body;
+  next();
+});
 
 // Route de base
 app.get('/', (req, res) => {
@@ -79,7 +103,7 @@ app.use('/blogs', blogRoutes);
 app.use('/cart-location', cartLocationRoutes);
 app.use('/contact', contactRoutes);
 app.use('/newsletter', newsletterRoutes);
-app.use('/orders', ordersRoutes);
+app.use('/orders', orderActionsRoutes);
 app.use('/locations', locationRoutes);
 app.use('/wishlist', wishlistRoutes);
 app.use('/cookies', cookiesRoutes);
@@ -92,6 +116,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/cartitem', cartItemRoutes);
 app.use('/order-items', orderItemRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/webhook', stripeWebhookRoutes);
 
 // Fallback SPA : sert index.html du dossier client/public UNIQUEMENT pour les routes qui ne commencent PAS par une route API connue
 app.get(/^\/(?!api|products|categories|special-offers|users|orders|wishlist|cart-location|contact|newsletter|locations|cookies|messages|blogs|blog-comments|uploads)(.*)/, (req, res) => {

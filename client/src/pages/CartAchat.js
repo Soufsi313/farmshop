@@ -40,6 +40,13 @@ function CartAchat() {
     setQuantities(q);
   }, [cartAchat]);
 
+  // DEBUG : Affiche la catégorie de chaque produit pour analyse TVA
+  useEffect(() => {
+    cartAchat.forEach(item => {
+      console.log('Produit:', item.Product?.name, '| Catégorie:', item.Product?.category?.name);
+    });
+  }, [cartAchat]);
+
   // Utilitaire pour récupérer l'offre spéciale, peu importe la structure
   function getSpecialOffer(item) {
     return item.SpecialOffer || item.Product?.specialOffer;
@@ -96,6 +103,34 @@ function CartAchat() {
     }
   };
 
+  // Calculs détaillés pour chaque ligne du panier
+  const lignesDetail = cartAchat.map(item => {
+    const price = item.Product?.price ?? 0;
+    const qty = quantities[item.id] ?? item.quantity;
+    const offer = getSpecialOffer(item);
+    let discount = 0;
+    if (offer && (!offer.startDate || new Date(offer.startDate) <= new Date()) && (!offer.endDate || new Date(offer.endDate) >= new Date()) && qty >= (offer.minQuantity || 0)) {
+      if (offer.discountType === 'percentage') {
+        discount = price * (offer.discountValue / 100) * qty;
+      } else if (offer.discountType === 'fixed') {
+        discount = offer.discountValue * qty;
+      }
+    }
+    // On considère alimentaire si la catégorie du produit est 'food', 'alimentaire', 'alimentation', 'fruits', 'légumes', 'fruits et légumes' (insensible à la casse)
+    const cat = (item.Product?.category?.name || '').toLowerCase();
+    const isFood = [
+      "food", "alimentaire", "alimentation", "fruits", "légumes", "fruits et légumes"
+    ].includes(cat);
+    const tvaRateLigne = isFood ? 6 : 21;
+    const totalHT = price * qty - discount;
+    const tva = totalHT * (tvaRateLigne / 100);
+    const totalTTC = totalHT + tva;
+    return { name: item.Product?.name, qty, price, discount, totalHT, tvaRateLigne, tva, totalTTC, category: item.Product?.category?.name };
+  });
+  const totalHT = lignesDetail.reduce((sum, l) => sum + l.totalHT, 0);
+  const totalTVA = lignesDetail.reduce((sum, l) => sum + l.tva, 0);
+  const totalTTC = lignesDetail.reduce((sum, l) => sum + l.totalTTC, 0);
+
   return (
     <div className="container py-5">
       <h1 className="mb-5 text-success text-center display-4 fw-bold">Mon panier d'achat</h1>
@@ -107,76 +142,38 @@ function CartAchat() {
             <thead>
               <tr>
                 <th>Produit</th>
-                <th>Prix unitaire</th>
+                <th>Catégorie</th>
+                <th>Prix unitaire HT</th>
                 <th>Quantité</th>
-                <th>Total</th>
+                <th>Remise</th>
+                <th>TVA</th>
+                <th>Total TTC</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {cartAchat.map(item => {
-                console.log('CartAchat item:', item, 'Product:', item.Product, 'SpecialOffer:', item.Product?.specialOffer);
+              {lignesDetail.map((l, idx) => {
+                const item = cartAchat[idx];
                 return (
-                  <tr key={item.id}>
-                    <td>
-                      <div className="d-flex align-items-center gap-2">
-                        {item.Product?.mainImage && <img src={`http://localhost:3000${item.Product.mainImage}`} alt={item.Product?.name} style={{width:48, height:48, objectFit:'contain', borderRadius:8, background:'#f8f9fa'}} />}
-                        <span className="fw-bold">{item.Product?.name}</span>
-                      </div>
-                      {(() => {
-                        const offer = getSpecialOffer(item);
-                        const qty = quantities[item.id] ?? item.quantity;
-                        if (offer && (!offer.startDate || new Date(offer.startDate) <= new Date()) && (!offer.endDate || new Date(offer.endDate) >= new Date()) && qty >= (offer.minQuantity || 0)) {
-                          return (
-                            <div className="text-danger small mt-1">
-                              Offre spéciale : -{offer.discountValue}{offer.discountType === 'percentage' ? '%' : '€'}{offer.minQuantity ? ` dès ${offer.minQuantity}kg` : ''}
-                              {offer.description ? <div className="small text-muted">{offer.description}</div> : null}
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        const offer = item.Product?.specialOffer;
-                        const hasOffer = offer && offer.active && (quantities[item.id] ?? item.quantity) >= (offer.minQuantity || 0);
-                        if (hasOffer) {
-                          return <>
-                            <span className="text-decoration-line-through text-muted me-2">
-                              {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(item.Product?.price ?? 0)}
-                            </span>
-                            <span className="fw-bold text-success">
-                              {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(getDiscountedPrice(item))}
-                            </span>
-                          </>;
-                        }
-                        return <span className="fw-bold">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(item.Product?.price ?? 0)}</span>;
-                      })()}
-                    </td>
+                  <tr key={idx}>
+                    <td>{l.name}</td>
+                    <td>{item.Product?.category?.name || <span className="text-muted">-</span>}</td>
+                    <td>{l.price.toFixed(2)} €</td>
                     <td>
                       <input
                         type="number"
                         min={1}
                         value={quantities[item.id] ?? item.quantity}
-                        onChange={async e => {
-                          const qty = Math.max(1, Number(e.target.value));
-                          setQuantities(q => ({ ...q, [item.id]: qty }));
-                          try {
-                            await updateCartItem(token, item.id, qty);
-                            const cart = await getUserCart(token);
-                            setCartAchat(cart.CartItems || []);
-                          } catch (err) {
-                            alert('Erreur lors de la modification de la quantité : ' + err.message);
-                          }
-                        }}
+                        onChange={e => handleQuantityChange(item.id, e.target.value)}
                         style={{ width: 60 }}
                       />
-                      {item.Product?.symbol}
+                      <button className="btn btn-sm btn-outline-primary ms-2" onClick={() => handleQuantityUpdate(item)}>
+                        Mettre à jour
+                      </button>
                     </td>
-                    <td className="fw-bold">
-                      {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(getLineTotal(item))}
-                    </td>
+                    <td className="text-danger">-{l.discount.toFixed(2)} €</td>
+                    <td>{l.tva.toFixed(2)} € ({l.tvaRateLigne}%)</td>
+                    <td className="fw-bold">{l.totalTTC.toFixed(2)} €</td>
                     <td>
                       <button className="btn btn-outline-danger btn-sm" onClick={() => handleRemove(item.id)}>Supprimer</button>
                     </td>
@@ -186,10 +183,15 @@ function CartAchat() {
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={3} className="text-end fw-bold">Total</td>
-                <td className="fw-bold text-success" style={{fontSize:'1.2em'}}>
-                  {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(total)}
-                </td>
+                <td colSpan={3} className="text-end fw-bold">Total HT</td>
+                <td colSpan={2} className="fw-bold">{totalHT.toFixed(2)} €</td>
+                <td className="fw-bold">TVA</td>
+                <td className="fw-bold">{totalTVA.toFixed(2)} €</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colSpan={6} className="text-end fw-bold">Total TTC</td>
+                <td className="fw-bold text-success" style={{fontSize:'1.2em'}}>{totalTTC.toFixed(2)} €</td>
                 <td></td>
               </tr>
             </tfoot>

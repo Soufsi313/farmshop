@@ -82,10 +82,16 @@ const cartController = {
                 as: 'CartItems',
                 include: [{
                   model: Product,
-                  include: [{ model: SpecialOffer, as: 'specialOffer', required: false }]
+                  include: [
+                    { model: SpecialOffer, as: 'specialOffer', required: false },
+                    { model: require('../models/Category'), as: 'category' }
+                  ]
                 }]
             }],
         });
+        if (cart) {
+            console.log('DEBUG PANIER API (cart structure):', JSON.stringify(cart, null, 2));
+        }
         if (!cart && createIfNotFound) {
             cart = await Cart.create({ userId, status: 'pending' });
         }

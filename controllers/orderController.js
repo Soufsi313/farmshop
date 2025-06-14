@@ -90,6 +90,46 @@ const orderController = {
       res.status(500).json({ message: err.message });
     }
   },
+
+  // Annulation de commande
+  cancelOrder: async (req, res) => {
+    const orderId = req.params.id;
+    try {
+      const order = await Orders.findByPk(orderId);
+      if (!order) return res.status(404).json({ error: 'Commande non trouvée' });
+      if ([ 'shipped', 'delivered', 'cancelled', 'returned' ].includes(order.status)) {
+        return res.status(400).json({ error: 'Annulation impossible, commande déjà expédiée ou traitée.' });
+      }
+      order.status = 'cancelled';
+      await order.save();
+      res.json({ message: 'Commande annulée avec succès.' });
+    } catch (err) {
+      res.status(500).json({ error: 'Erreur lors de l\'annulation de la commande.' });
+    }
+  },
+
+  // Retour de commande
+  returnOrder: async (req, res) => {
+    const orderId = req.params.id;
+    try {
+      const order = await Orders.findByPk(orderId);
+      if (!order) return res.status(404).json({ error: 'Commande non trouvée' });
+      if (order.status !== 'delivered') {
+        return res.status(400).json({ error: 'Retour possible uniquement si la commande est livrée.' });
+      }
+      // Vérifier les produits périssables
+      const items = await OrderItem.findAll({ where: { orderId }, include: [Product] });
+      const perishable = items.find(item => item.Product && item.Product.isPerishable);
+      if (perishable) {
+        return res.status(400).json({ error: 'Retour impossible pour les produits périssables.' });
+      }
+      order.status = 'returned';
+      await order.save();
+      res.json({ message: 'Commande retournée avec succès.' });
+    } catch (err) {
+      res.status(500).json({ error: 'Erreur lors du retour de la commande.' });
+    }
+  },
 };
 
 module.exports = orderController;

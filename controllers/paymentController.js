@@ -37,19 +37,33 @@ exports.createCheckoutSession = async (req, res) => {
     if (!lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
       return res.status(400).json({ error: 'Aucun produit à payer.' });
     }
+    // Calcul du prix TTC pour chaque ligne selon la TVA
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: lineItems.map(item => ({
-        price_data: {
-          currency: 'eur',
-          product_data: { name: item.name },
-          unit_amount: Math.round(item.amount * 100),
-        },
-        quantity: item.quantity,
-      })),
+      line_items: lineItems.map(item => {
+        // Applique 6% si isFood, sinon 21%
+        const tva = item.isFood ? 0.06 : 0.21;
+        const priceHT = Number(item.amount);
+        const priceTTC = priceHT * (1 + tva);
+        return {
+          price_data: {
+            currency: 'eur',
+            product_data: { name: item.name },
+            unit_amount: Math.round(priceTTC * 100), // Prix TTC en centimes
+          },
+          quantity: item.quantity,
+        };
+      }),
       mode: 'payment',
       success_url: successUrl,
       cancel_url: cancelUrl,
+      // Désactive Stripe Tax, car on gère la TVA nous-même
+      automatic_tax: { enabled: false },
+      billing_address_collection: 'required',
+      shipping_address_collection: {
+        allowed_countries: ['FR'],
+      },
+      customer_creation: 'always',
     });
     res.json({ url: session.url });
   } catch (error) {

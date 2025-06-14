@@ -38,8 +38,8 @@ function CheckoutCommande() {
     }
   }, [orderItems]);
 
-  // Calculs dynamiques
-  const totalHT = orderItems.reduce((sum, item) => {
+  // Calculs dynamiques détaillés
+  const lignesDetail = orderItems.map(item => {
     const price = item.Product?.price ?? 0;
     const qty = item.quantity;
     let discount = 0;
@@ -51,12 +51,20 @@ function CheckoutCommande() {
         discount = offer.discountValue * qty;
       }
     }
-    return sum + (price * qty - discount);
-  }, 0);
-  const totalTVA = totalHT * (tvaRate / 100);
-  const totalTTC = totalHT + totalTVA;
-  const fraisLivraison = totalTTC < 25 ? 3.5 : 0;
-  const totalTTCFinal = totalTTC + fraisLivraison;
+    const isFood = ["food", "alimentaire", "alimentation"].includes((item.Product?.category || '').toLowerCase());
+    const tvaRateLigne = isFood ? 6 : 21;
+    const totalHT = price * qty - discount;
+    const tva = totalHT * (tvaRateLigne / 100);
+    const totalTTC = totalHT + tva;
+    return { name: item.Product?.name, qty, price, discount, totalHT, tvaRateLigne, tva, totalTTC };
+  });
+  // Livraison (21% TVA)
+  const livraisonHT = fraisLivraison > 0 ? fraisLivraison / 1.21 : 0;
+  const livraisonTVA = fraisLivraison > 0 ? fraisLivraison - livraisonHT : 0;
+  // Totaux
+  const totalHT = lignesDetail.reduce((sum, l) => sum + l.totalHT, 0) + livraisonHT;
+  const totalTVA = lignesDetail.reduce((sum, l) => sum + l.tva, 0) + livraisonTVA;
+  const totalTTC = lignesDetail.reduce((sum, l) => sum + l.totalTTC, 0) + (fraisLivraison > 0 ? fraisLivraison : 0);
   const adresseComplete = `${adresseRue}, ${codePostal} ${localite}, ${pays}`;
 
   // Redirection Stripe Checkout
@@ -75,10 +83,13 @@ function CheckoutCommande() {
           discount = offer.discountValue * qty;
         }
       }
+      // On considère alimentaire si la catégorie du produit est 'food' ou 'alimentaire'
+      const isFood = ["food", "alimentaire", "alimentation"].includes((item.Product?.category || '').toLowerCase());
       return {
         name: item.Product?.name || 'Produit',
         amount: price - (discount / qty),
         quantity: qty,
+        isFood, // Ajouté pour la TVA backend
       };
     });
     // Ajouter les frais de livraison si besoin
@@ -94,7 +105,8 @@ function CheckoutCommande() {
       },
       body: JSON.stringify({
         lineItems,
-        successUrl: window.location.origin + '/checkout?success=1',
+        // Redirige vers la page de confirmation après paiement
+        successUrl: window.location.origin + '/order-confirmed',
         cancelUrl: window.location.origin + '/checkout?canceled=1',
       }),
     });
@@ -303,7 +315,7 @@ function CheckoutCommande() {
       <div className="card mb-4">
         <div className="card-body">
           <h5 className="card-title">Récapitulatif de la commande</h5>
-          {orderItems.length === 0 ? (
+          {lignesDetail.length === 0 ? (
             <div className="text-muted">Aucun produit à afficher</div>
           ) : (
             <table className="table">
@@ -311,43 +323,33 @@ function CheckoutCommande() {
                 <tr>
                   <th>Produit</th>
                   <th>Quantité</th>
-                  <th>Prix unitaire</th>
+                  <th>Prix unitaire HT</th>
                   <th>Remise</th>
-                  <th>Total HT</th>
+                  <th>TVA</th>
+                  <th>Total TTC</th>
                 </tr>
               </thead>
               <tbody>
-                {orderItems.map(item => {
-                  const price = item.Product?.price ?? 0;
-                  const qty = item.quantity;
-                  let discount = 0;
-                  const offer = getSpecialOffer(item);
-                  if (offer && offer.discountType && qty >= (offer.minQuantity || 0)) {
-                    if (offer.discountType === 'percentage') {
-                      discount = price * (offer.discountValue / 100) * qty;
-                    } else if (offer.discountType === 'fixed') {
-                      discount = offer.discountValue * qty;
-                    }
-                  }
-                  const totalHT = price * qty - discount;
-                  return (
-                    <tr key={item.id}>
-                      <td>
-                        {item.Product?.name}
-                        {offer && offer.discountType && qty >= (offer.minQuantity || 0) && (
-                          <div className="text-danger small mt-1">
-                            Offre spéciale : -{offer.discountValue}{offer.discountType === 'percentage' ? '%' : '€'}{offer.minQuantity ? ` dès ${offer.minQuantity}kg` : ''}
-                            {offer.description ? <div className="small text-muted">{offer.description}</div> : null}
-                          </div>
-                        )}
-                      </td>
-                      <td>{qty}</td>
-                      <td>{price.toFixed(2)} €</td>
-                      <td className="text-danger">-{discount.toFixed(2)} €</td>
-                      <td>{totalHT.toFixed(2)} €</td>
-                    </tr>
-                  );
-                })}
+                {lignesDetail.map((l, idx) => (
+                  <tr key={idx}>
+                    <td>{l.name}</td>
+                    <td>{l.qty}</td>
+                    <td>{l.price.toFixed(2)} €</td>
+                    <td className="text-danger">-{l.discount.toFixed(2)} €</td>
+                    <td>{l.tva.toFixed(2)} € ({l.tvaRateLigne}%)</td>
+                    <td>{l.totalTTC.toFixed(2)} €</td>
+                  </tr>
+                ))}
+                {fraisLivraison > 0 && (
+                  <tr>
+                    <td>Frais de livraison</td>
+                    <td>1</td>
+                    <td>{livraisonHT.toFixed(2)} €</td>
+                    <td>-</td>
+                    <td>{livraisonTVA.toFixed(2)} € (21%)</td>
+                    <td>{fraisLivraison.toFixed(2)} €</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           )}
@@ -355,12 +357,12 @@ function CheckoutCommande() {
       </div>
       <div className="mb-3">
         <strong>Total HT :</strong> {totalHT.toFixed(2)} €<br />
-        <strong>TVA ({tvaRate}%):</strong> {totalTVA.toFixed(2)} €<br />
+        <strong>Total TVA :</strong> {totalTVA.toFixed(2)} €<br />
         <strong>Total TTC :</strong> {totalTTC.toFixed(2)} €<br />
         {fraisLivraison > 0 && (
           <span className="text-danger"><strong>Frais de livraison :</strong> {fraisLivraison.toFixed(2)} € (offerts dès 25€ d'achat)</span>
         )}<br />
-        <strong>Total à payer :</strong> {totalTTCFinal.toFixed(2)} €
+        <strong>Total à payer :</strong> {totalTTC.toFixed(2)} €
       </div>
       {!paymentSuccess && (
         <button className="btn btn-success" onClick={handleStripeCheckout} disabled={orderItems.length === 0 || !pays || !adresseRue || !codePostal || !localite}>
