@@ -48,6 +48,12 @@ const Product = sequelize.define('Product', {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
     },
+    tax_rate: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 21,
+        comment: 'Taux de TVA applicable au produit (ex: 6 ou 21)',
+    },
 }, {
     timestamps: true,
 });

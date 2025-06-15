@@ -68,6 +68,10 @@ app.use((req, res, next) => {
     if (req.originalUrl === '/webhook/stripe') {
       return next();
     }
+    // Désactive CSRF pour la création de commande (checkout)
+    if (req.method === 'POST' && (/^\/order-items(\/|$)/.test(req.path) || /^\/api\/orderitem(\/|$)/.test(req.path))) {
+      return next();
+    }
     return lusca.csrf()(req, res, next);
   }
   next();

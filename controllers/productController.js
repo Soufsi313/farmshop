@@ -79,7 +79,6 @@ const productController = {
             if (categoryId) {
                 where.categoryId = categoryId;
             }
-            // Inclure l’offre spéciale active (si existante)
             const now = new Date();
             const { count, rows } = await Product.findAndCountAll({
                 where,
@@ -96,6 +95,10 @@ const productController = {
                     }
                 }]
             });
+            // DEBUG : Afficher le premier produit brut
+            if (rows && rows.length > 0) {
+                console.log('Produit brut Sequelize :', rows[0].toJSON());
+            }
             // On renvoie specialOffer seulement si elle existe et active
             const products = rows.map(p => {
                 const prod = p.toJSON();

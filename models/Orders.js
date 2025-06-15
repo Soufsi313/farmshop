@@ -30,6 +30,16 @@ const Orders = sequelize.define('Orders', {
     isPerishable: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
+    },
+    totalTTC: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+        comment: 'Montant total TTC payé pour la commande',
+    },
+    shippingFees: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+        comment: 'Frais de livraison TTC appliqués à la commande',
     }
 }, {
     timestamps: true,

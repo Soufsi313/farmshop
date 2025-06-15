@@ -114,15 +114,19 @@ function CartAchat() {
     const isFood = [
       "food", "alimentaire", "alimentation", "fruits", "légumes", "fruits et légumes"
     ].includes(cat);
-    const tvaRateLigne = isFood ? 6 : 21;
+    const tvaRateLigne = item.Product?.tax_rate !== undefined ? Number(item.Product.tax_rate) : 21;
     const totalHT = price * qty - discount;
     const tva = totalHT * (tvaRateLigne / 100);
     const totalTTC = totalHT + tva;
     return { name: item.Product?.name, qty, price, discount, totalHT, tvaRateLigne, tva, totalTTC, category: item.Product?.category?.name };
   });
+  // Frais de livraison : 2.50€ TTC si < 25€ TTC produits
+  let fraisLivraisonTTC = lignesDetail.reduce((sum, l) => sum + l.totalTTC, 0) >= 25 ? 0 : 2.50;
+  // Totaux
   const totalHT = lignesDetail.reduce((sum, l) => sum + l.totalHT, 0);
+  const totalTVA6 = lignesDetail.filter(l => l.tvaRateLigne === 6).reduce((sum, l) => sum + l.tva, 0);
   const totalTVA = lignesDetail.reduce((sum, l) => sum + l.tva, 0);
-  const totalTTC = lignesDetail.reduce((sum, l) => sum + l.totalTTC, 0);
+  const totalTTC = lignesDetail.reduce((sum, l) => sum + l.totalTTC, 0) + fraisLivraisonTTC;
 
   return (
     <div className="container py-5">
@@ -176,14 +180,19 @@ function CartAchat() {
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={3} className="text-end fw-bold">Total HT</td>
+                <td colSpan={3} className="text-end fw-bold">Total HT produits</td>
                 <td colSpan={2} className="fw-bold">{totalHT.toFixed(2)} €</td>
-                <td className="fw-bold">TVA</td>
-                <td className="fw-bold">{totalTVA.toFixed(2)} €</td>
+                <td className="fw-bold">TVA 6%</td>
+                <td className="fw-bold">{totalTVA6.toFixed(2)} €</td>
                 <td></td>
               </tr>
               <tr>
-                <td colSpan={6} className="text-end fw-bold">Total TTC</td>
+                <td colSpan={5} className="text-end fw-bold">Frais de livraison (TTC)</td>
+                <td colSpan={2} className="fw-bold">{fraisLivraisonTTC > 0 ? fraisLivraisonTTC.toFixed(2) + ' €' : '-'}</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colSpan={6} className="text-end fw-bold">Total TTC à payer</td>
                 <td className="fw-bold text-success" style={{fontSize:'1.2em'}}>{totalTTC.toFixed(2)} €</td>
                 <td></td>
               </tr>

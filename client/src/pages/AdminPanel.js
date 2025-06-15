@@ -26,7 +26,8 @@ function AdminPanel() {
     mainImage: null,
     galleryImages: [],
     criticalThreshold: '',
-    isAvailable: true
+    isAvailable: true,
+    tax_rate: '6' // Valeur par défaut 6%
   });
   const [productEditMode, setProductEditMode] = useState(false);
   const [productError, setProductError] = useState('');
@@ -240,26 +241,25 @@ function AdminPanel() {
     setProductLoading(true);
     setProductError('');
     try {
-      const token = localStorage.getItem('token');
-      const params = new URLSearchParams({
-        page: productPage,
-        limit: productLimit,
-        orderBy: productOrderBy,
-        orderDir: productOrderDir
-      });
+      const params = new URLSearchParams();
+      params.append('page', productPage);
+      params.append('limit', productLimit);
+      params.append('orderBy', productOrderBy);
+      params.append('orderDir', productOrderDir);
       if (productSearch.trim() !== '') params.append('search', productSearch);
       if (productCategoryFilter) params.append('categoryId', productCategoryFilter);
       const res = await fetch(`http://localhost:3000/products?${params.toString()}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
         credentials: 'include'
       });
       const data = await res.json();
-      if (res.ok) {
-        setProducts(data.products || []);
-        setProductTotal(data.total || 0);
-      } else {
-        setProductError(data.message || 'Erreur lors du chargement des produits.');
+      // DEBUG : Afficher le premier produit reçu
+      if (data.products && data.products.length > 0) {
+        console.log('Produit reçu:', data.products[0]);
+        // Afficher toutes les clés et valeurs pour debug
+        Object.entries(data.products[0]).forEach(([k, v]) => console.log('  ', k, v));
       }
+      setProducts(data.products || []);
+      setProductTotal(data.total || 0);
     } catch (err) {
       setProductError('Erreur serveur');
     }
@@ -355,7 +355,7 @@ function AdminPanel() {
       if (res.ok) {
         fetchProducts();
         setProductForm({
-          id: null, name: '', description: '', price: '', quantity: '', categoryId: '', symbol: 'Au kg', mainImage: null, galleryImages: [], criticalThreshold: '', isAvailable: true
+          id: null, name: '', description: '', price: '', quantity: '', categoryId: '', symbol: 'Au kg', mainImage: null, galleryImages: [], criticalThreshold: '', isAvailable: true, tax_rate: '6'
         });
         setProductEditMode(false);
         setProductImagePreview(null);
@@ -757,6 +757,14 @@ function AdminPanel() {
                   <label className="form-label">Seuil critique</label>
                   <input className="form-control" name="criticalThreshold" type="number" min="0" value={productForm.criticalThreshold} onChange={handleProductFormChange} required />
                 </div>
+                <div className="col-md-4">
+                  <label className="form-label">TVA (%)</label>
+                  <select className="form-select" name="tax_rate" value={productForm.tax_rate} onChange={handleProductFormChange} required>
+                    <option value="6">6% (Alimentaire)</option>
+                    <option value="12">12% (Spécial)</option>
+                    <option value="21">21% (Non alimentaire)</option>
+                  </select>
+                </div>
                 <div className="col-md-12">
                   <label className="form-label">Description</label>
                   <ReactQuill
@@ -802,7 +810,7 @@ function AdminPanel() {
                   <div className="col-md-2 d-flex align-items-end">
                     <button className="btn btn-secondary w-100" type="button" onClick={() => {
                       setProductEditMode(false);
-                      setProductForm({ id: null, name: '', description: '', price: '', quantity: '', categoryId: '', symbol: 'Au kg', mainImage: null, galleryImages: [], criticalThreshold: '', isAvailable: true });
+                      setProductForm({ id: null, name: '', description: '', price: '', quantity: '', categoryId: '', symbol: 'Au kg', mainImage: null, galleryImages: [], criticalThreshold: '', isAvailable: true, tax_rate: '6' });
                       setProductImagePreview(null);
                       setGalleryPreviews([]);
                     }}>Annuler</button>
@@ -827,6 +835,7 @@ function AdminPanel() {
                 <table className="table table-bordered table-hover align-middle">
                   <thead className="table-success">
                     <tr>
+                      <th>#</th>
                       <th style={{ cursor: 'pointer' }} onClick={() => {
                         setProductOrderBy('name');
                         setProductOrderDir(productOrderBy === 'name' && productOrderDir === 'ASC' ? 'DESC' : 'ASC');
@@ -851,6 +860,7 @@ function AdminPanel() {
                       <th>Quantité</th>
                       <th>Unité</th>
                       <th>Seuil critique</th>
+                      <th>TVA (%)</th>
                       <th>Disponible</th>
                       <th>Image</th>
                       <th>Actions</th>
@@ -858,7 +868,7 @@ function AdminPanel() {
                   </thead>
                   <tbody>
                     {products.length === 0 ? (
-                      <tr><td colSpan="10" className="text-center">Aucun produit</td></tr>
+                      <tr><td colSpan="11" className="text-center">Aucun produit</td></tr>
                     ) : products.map((p, idx) => (
                       <tr key={p.id} className={!p.isAvailable ? 'table-warning' : ''}>
                         <td>{(productPage - 1) * productLimit + idx + 1}</td>
@@ -868,6 +878,7 @@ function AdminPanel() {
                         <td>{p.quantity}</td>
                         <td>{p.symbol}</td>
                         <td>{p.criticalThreshold}</td>
+                        <td>{p.tax_rate}</td>
                         <td>{p.isAvailable ? 'Oui' : 'Non'}</td>
                         <td>{p.mainImage && <img src={`http://localhost:3000${p.mainImage}`} alt="main" style={{ maxHeight: 40 }} />}</td>
                         <td>
