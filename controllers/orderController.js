@@ -97,8 +97,9 @@ const orderController = {
     try {
       const order = await Orders.findByPk(orderId);
       if (!order) return res.status(404).json({ error: 'Commande non trouvée' });
-      if ([ 'shipped', 'delivered', 'cancelled', 'returned' ].includes(order.status)) {
-        return res.status(400).json({ error: 'Annulation impossible, commande déjà expédiée ou traitée.' });
+      // Blocage si la commande est déjà expédiée ou après
+      if ([ 'expédié', 'shipped', 'delivered', 'cancelled', 'returned' ].includes(order.status)) {
+        return res.status(400).json({ error: "Impossible d'annuler une commande déjà expédiée." });
       }
       order.status = 'cancelled';
       await order.save();
