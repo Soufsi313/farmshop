@@ -67,13 +67,6 @@ function CartAchat() {
     return item.Product?.price ?? 0;
   }
 
-  const getLineTotal = (item) => {
-    const qty = quantities[item.id] ?? item.quantity;
-    return getDiscountedPrice(item) * qty;
-  };
-
-  const total = cartAchat.reduce((sum, item) => sum + getLineTotal(item), 0);
-
   const handleRemove = async (id) => {
     const token = localStorage.getItem('token');
     try {
@@ -201,7 +194,12 @@ function CartAchat() {
       {/* Boutons d'action */}
       <div className="d-flex justify-content-between align-items-center mb-4" style={{maxWidth:700,margin:'0 auto'}}>
         <button className="btn btn-secondary" onClick={() => navigate('/produits/achat')}>Continuer mes achats</button>
-        <button className="btn btn-success" onClick={() => navigate('/checkout')}>Confirmer ma commande</button>
+        <button className="btn btn-success" 
+                onClick={() => navigate('/checkout')}
+                disabled={cartAchat.length === 0}
+        >
+          Confirmer ma commande
+        </button>
       </div>
       <div className="card shadow-sm mb-4" style={{maxWidth:700,margin:'40px auto 0 auto',borderRadius:12,border:'1px solid #e0e0e0'}}>
         <div className="card-body bg-light">
