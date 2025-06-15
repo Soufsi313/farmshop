@@ -17,6 +17,7 @@ import React, { useState, createContext } from 'react';
 import StripeWrapper from './StripeWrapper';
 import OrderConfirmation from './pages/OrderConfirmation';
 import MesCommandes from './pages/MesCommandes';
+import CommandeDetail from './pages/CommandeDetail';
 
 export const CartWishlistContext = createContext();
 
@@ -54,6 +55,7 @@ function App() {
             } />
             <Route path="/order-confirmed" element={<OrderConfirmation />} />
             <Route path="/mes-commandes" element={<MesCommandes />} />
+            <Route path="/commande/:id" element={<CommandeDetail />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Footer />

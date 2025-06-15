@@ -56,6 +56,16 @@ const OrderItem = sequelize.define('OrderItem', {
     allowNull: false,
     comment: 'Total TTC après remise et TVA',
   },
+  discountPercent: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    comment: 'Pourcentage de remise appliqué sur la ligne (si applicable)',
+  },
+  unitPriceDiscounted: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    comment: 'Prix unitaire après remise (pour affichage)',
+  },
 }, {
   tableName: 'OrderItems',
   timestamps: true,

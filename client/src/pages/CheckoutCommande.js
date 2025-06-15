@@ -84,6 +84,12 @@ function CheckoutCommande() {
           Authorization: `Bearer ${token}`,
         },
         credentials: 'include',
+        body: JSON.stringify({
+          shippingAddress: adresseRue,
+          shippingPostalCode: codePostal,
+          shippingCity: localite,
+          shippingCountry: pays
+        })
       });
       const dataOrder = await resOrder.json();
       if (!resOrder.ok || !dataOrder.orderId) {

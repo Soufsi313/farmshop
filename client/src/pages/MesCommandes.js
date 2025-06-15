@@ -7,10 +7,17 @@ export default function MesCommandes() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [orderSortDir, setOrderSortDir] = useState('asc'); // 'asc' ou 'desc'
   const commandesParPage = 15;
   const indexOfLast = currentPage * commandesParPage;
   const indexOfFirst = indexOfLast - commandesParPage;
-  const commandesPage = orders.slice(indexOfFirst, indexOfLast);
+  // Tri des commandes par date
+  const sortedOrders = [...orders].sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return orderSortDir === 'asc' ? dateA - dateB : dateB - dateA;
+  });
+  const commandesPage = sortedOrders.slice(indexOfFirst, indexOfLast);
   const totalPages = Math.ceil(orders.length / commandesParPage);
   const navigate = useNavigate();
 
@@ -104,9 +111,10 @@ export default function MesCommandes() {
     y += 6;
     doc.text(`TVA 6% : ${totalTVA6.toFixed(2)} €`, 10, y);
     y += 6;
-    // Total TTC payé = total produits TTC + livraison TTC
-    const totalProduitsTTC = items.reduce((sum, i) => sum + (Number(i.totalPriceTTC) || 0), 0);
-    const totalTTCFinal = totalProduitsTTC + fraisLivraisonTTC;
+    // Correction : utiliser le totalTTC stocké (backend) pour le total payé
+    const totalTTCFinal = order.totalTTC !== undefined && order.totalTTC !== null
+      ? Number(order.totalTTC)
+      : (items.reduce((sum, i) => sum + (Number(i.totalPriceTTC) || 0), 0) + fraisLivraisonTTC);
     doc.text(`Total TTC payé : ${totalTTCFinal.toFixed(2)} €`, 10, y);
     y += 10;
     doc.setFontSize(10);
@@ -127,7 +135,9 @@ export default function MesCommandes() {
           <thead>
             <tr>
               <th>#</th>
-              <th>Date</th>
+              <th style={{cursor:'pointer'}} onClick={() => setOrderSortDir(d => d === 'asc' ? 'desc' : 'asc')}>
+                Date {orderSortDir === 'asc' ? '▲' : '▼'}
+              </th>
               <th>Statut</th>
               <th>Montant</th>
               <th>Détail</th>

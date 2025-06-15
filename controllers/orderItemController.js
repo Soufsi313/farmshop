@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const Orders = require('../models/Orders');
 const OrderItem = require('../models/OrderItem');
 const Cart = require('../models/Cart');
@@ -36,109 +38,101 @@ const orderItemController = {
       const order = await Orders.create({
         userId,
         status: 'pending',
-        paymentMethod: 'stripe', // ou 'pending' si tu veux le mettre à jour plus tard
-        // Ajoute ici les infos de livraison/frais si besoin (à compléter)
+        paymentMethod: 'stripe',
+        shippingAddress: req.body.shippingAddress || null,
+        shippingPostalCode: req.body.shippingPostalCode || null,
+        shippingCity: req.body.shippingCity || null,
+        shippingCountry: req.body.shippingCountry || null,
       });
-      // Calcul du total TTC de la commande (TVA 6% pour alimentaire, 21% sinon)
-      let totalTTCCommande = 0;
-      let totalHTProduits = 0;
-      let totalTVA6 = 0;
-      let totalTVA21 = 0;
+      // Préparer le log
+      const logLines = [];
+      const now = new Date();
       for (const item of cart.CartItems) {
         const product = item.Product;
-        const offer = product.specialOffer;
+        let offer = product.specialOffer;
+        // DEBUG structure de l'offre spéciale
+        console.log('[DEBUG] Offre spéciale pour', product.name, ':', offer);
+        if (Array.isArray(offer)) {
+          offer = offer.length > 0 ? offer[0] : null;
+        }
         const qty = item.quantity;
-        const unitPrice = product.price;
+        const unitPrice = parseFloat(product.price);
+        const taxRate = parseFloat(product.tax_rate);
         let discount = 0;
-        if (offer && offer.active && qty >= (offer.minQuantity || 0)) {
-          if (offer.discountType === 'percentage') {
-            discount = unitPrice * (offer.discountValue / 100) * qty;
-          } else if (offer.discountType === 'fixed') {
-            discount = offer.discountValue * qty;
+        let discountPercent = 0;
+        let discountInfo = '';
+        // Vérification de la validité de l'offre spéciale
+        let offerValid = false;
+        if (offer && offer.discountType) {
+          const start = offer.startDate ? new Date(offer.startDate) : null;
+          const end = offer.endDate ? new Date(offer.endDate) : null;
+          if (
+            (!start || now >= start) &&
+            (!end || now <= end) &&
+            qty >= (offer.minQuantity || 0)
+          ) {
+            offerValid = true;
           }
         }
-        const totalHT = unitPrice * qty - discount;
-        // Correction : charger la catégorie réelle
-        let catName = '';
-        if (product.category && typeof product.category === 'object' && product.category.name) {
-          catName = product.category.name.toLowerCase();
-        } else if (product.categoryId) {
-          const cat = await Category.findByPk(product.categoryId);
-          if (cat) catName = cat.name.toLowerCase();
-          else console.warn('Catégorie non trouvée pour le produit', product.id, '| categoryId =', product.categoryId);
-        } else {
-          console.warn('Aucune catégorie pour le produit', product.id);
+        if (offer && offerValid) {
+          if (offer.discountType === 'percentage') {
+            discountPercent = offer.discountValue;
+            discount = parseFloat((unitPrice * (discountPercent / 100) * qty).toFixed(2));
+            discountInfo = `${discountPercent}% sur ${qty} (min: ${offer.minQuantity})`;
+          } else if (offer.discountType === 'fixed') {
+            discount = parseFloat((offer.discountValue * qty).toFixed(2));
+            discountInfo = `${offer.discountValue}€ x ${qty}`;
+          }
         }
-        const foodCategories = [
-          "food", "alimentaire", "alimentation", "fruits", "légumes", "fruits et légumes"
-        ];
-        const isFood = foodCategories.includes(catName);
-        // Utiliser le taux de TVA du produit
-        const tvaRate = product.tax_rate !== undefined ? Number(product.tax_rate) : 21;
-        const tva = totalHT * (tvaRate / 100);
-        const totalTTC = totalHT + tva;
-        totalTTCCommande += totalTTC;
-        totalHTProduits += totalHT;
-        if (tvaRate === 6) totalTVA6 += tva; else totalTVA21 += tva;
+        // Prix HT total AVANT remise
+        const totalHTBrut = parseFloat((unitPrice * qty).toFixed(2));
+        // Prix HT total APRÈS remise
+        const totalHT = parseFloat((totalHTBrut - discount).toFixed(2));
+        // Prix unitaire remisé (pour affichage)
+        const unitPriceDiscounted = offer && offerValid && offer.discountType === 'percentage'
+          ? parseFloat((unitPrice * (1 - discountPercent / 100)).toFixed(2))
+          : unitPrice;
+        // TVA sur le HT remisé
+        const tva = parseFloat((totalHT * (taxRate / 100)).toFixed(2));
+        // TTC final
+        const totalTTC = parseFloat((totalHT + tva).toFixed(2));
+        // Log détaillé
+        const logLine = `Produit: ${product.name} | Qte: ${qty} | PU: ${unitPrice} | PU remisé: ${unitPriceDiscounted} | HT brut: ${totalHTBrut} | Remise: ${discount} (${discountInfo}) | HT net: ${totalHT} | TVA (${taxRate}%): ${tva} | TTC: ${totalTTC}`;
+        console.log(logLine);
+        logLines.push(logLine);
         await OrderItem.create({
           orderId: order.id,
           productId: product.id,
           quantity: qty,
-          unitPrice,
-          specialOfferDiscount: discount,
+          unitPrice, // prix original
+          specialOfferDiscount: discount, // montant total de la remise
           totalPriceHT: totalHT,
-          tvaRate,
+          tvaRate: taxRate,
           totalPriceTTC: totalTTC,
+          discountPercent: discountPercent || null,
+          unitPriceDiscounted: unitPriceDiscounted,
         });
-        // Décrémenter le stock du produit
-        product.quantity = Math.max(0, product.quantity - qty);
-        await product.save();
-        // Alerte seuil critique : message interne à l'admin si stock <= seuil
-        if (product.quantity <= product.criticalThreshold) {
-          // Récupérer l'admin
-          const admin = await User.findOne({ where: { role: 'Admin' } });
-          if (admin) {
-            await Messages.create({
-              fromId: null,
-              toId: admin.id,
-              subject: `Alerte stock critique : ${product.name}`,
-              body: `Le stock du produit "${product.name}" est passé sous le seuil critique (${product.criticalThreshold}). Stock actuel : ${product.quantity}.`,
-              date: new Date(),
-              lu: false,
-              traite: false
-            });
-          }
-        }
       }
-      // Déterminer le taux de TVA livraison selon la règle belge
-      let livraisonTauxTVA = 6; // Par défaut 6%
-      for (const item of cart.CartItems) {
-        const product = item.Product;
-        let catName = '';
-        if (product.category && typeof product.category === 'object' && product.category.name) {
-          catName = product.category.name.toLowerCase();
-        } else if (product.categoryId) {
-          const cat = await Category.findByPk(product.categoryId);
-          if (cat) catName = cat.name.toLowerCase();
-        }
-        const foodCategories = [
-          "food", "alimentaire", "alimentation", "fruits", "légumes", "fruits et légumes"
-        ];
-        if (!foodCategories.includes(catName)) {
-          livraisonTauxTVA = 21;
-          break;
-        }
-      }
-      // Frais de livraison TTC fixes (2,50€ si < 25€ TTC produits)
-      let fraisLivraisonTTC = totalTTCCommande >= 25 ? 0 : 2.50;
-      totalTTCCommande += fraisLivraisonTTC;
-      order.totalTTC = totalTTCCommande;
-      order.shippingFees = fraisLivraisonTTC;
-      await order.save();
-      console.log('Commande créée :', order.id, '| totalTTC enregistré =', order.totalTTC);
+      // Écrire les logs dans un fichier
+      const logPath = path.join(__dirname, '../logs/order_calculation.log');
+      fs.mkdirSync(path.dirname(logPath), { recursive: true });
+      fs.appendFileSync(logPath, `\n[${new Date().toISOString()}] Commande user #${userId}\n` + logLines.join('\n') + '\n');
       // Marquer le panier comme "commandé"
       cart.status = 'ordered';
       await cart.save();
+      // Calcul du total produits TTC
+      const orderItems = await OrderItem.findAll({ where: { orderId: order.id } });
+      const totalProduitsTTC = orderItems.reduce((sum, i) => sum + (Number(i.totalPriceTTC) || 0), 0);
+      // Application des frais de livraison (2,50€ si < 25€)
+      let shippingFees = 0;
+      if (totalProduitsTTC < 25) {
+        shippingFees = 2.5;
+      }
+      const totalTTC = parseFloat((totalProduitsTTC + shippingFees).toFixed(2));
+      // Mise à jour de la commande avec les totaux
+      order.totalTTC = totalTTC;
+      order.shippingFees = shippingFees;
+      await order.save();
       res.status(201).json({ message: 'Commande créée avec succès', orderId: order.id });
     } catch (err) {
       res.status(500).json({ message: err.message });
@@ -159,6 +153,28 @@ const orderItemController = {
         order: [['createdAt', 'DESC']]
       });
       res.json({ orders });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  },
+
+  // Récupérer le détail d'une commande par ID
+  getOrderDetail: async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const orderId = req.params.id;
+      const order = await Orders.findOne({
+        where: { id: orderId, userId },
+        include: [
+          {
+            model: OrderItem,
+            as: 'OrderItems',
+            include: [{ model: Product, include: ['category'] }]
+          }
+        ]
+      });
+      if (!order) return res.status(404).json({ message: 'Commande introuvable' });
+      res.json({ order });
     } catch (err) {
       res.status(500).json({ message: err.message });
     }

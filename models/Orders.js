@@ -40,6 +40,26 @@ const Orders = sequelize.define('Orders', {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
         comment: 'Frais de livraison TTC appliqués à la commande',
+    },
+    shippingAddress: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Adresse complète de livraison (rue, code postal, localité, pays)'
+    },
+    shippingPostalCode: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Code postal de livraison'
+    },
+    shippingCity: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Ville/localité de livraison'
+    },
+    shippingCountry: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Pays de livraison'
     }
 }, {
     timestamps: true,
