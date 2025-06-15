@@ -135,6 +135,7 @@ export default function MesCommandes() {
           <thead>
             <tr>
               <th>#</th>
+              <th>Produit</th>
               <th style={{cursor:'pointer'}} onClick={() => setOrderSortDir(d => d === 'asc' ? 'desc' : 'asc')}>
                 Date {orderSortDir === 'asc' ? '▲' : '▼'}
               </th>
@@ -145,24 +146,40 @@ export default function MesCommandes() {
             </tr>
           </thead>
           <tbody>
-            {commandesPage.map(order => (
-              <tr key={order.id}>
-                <td>{order.id}</td>
-                <td>{new Date(order.createdAt).toLocaleString()}</td>
-                <td>{order.status}</td>
-                <td>{order.totalTTC !== null && order.totalTTC !== undefined ? Number(order.totalTTC).toFixed(2) : 'N/A'} €</td>
-                <td>
-                  <button className="btn btn-outline-primary btn-sm" onClick={() => navigate(`/commande/${order.id}`)}>
-                    Voir
-                  </button>
-                </td>
-                <td>
-                  <button className="btn btn-outline-success btn-sm" onClick={() => handleDownloadInvoice(order)}>
-                    Télécharger la facture
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {commandesPage.map(order => {
+              const items = order.OrderItems || order.items || [];
+              const firstItem = items[0];
+              const productName = firstItem?.Product?.name || firstItem?.productName || '-';
+              const productImg = firstItem?.Product?.mainImage || null;
+              return (
+                <tr key={order.id}>
+                  <td>{order.id}</td>
+                  <td>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      {productImg ? (
+                        <img src={productImg} alt={productName} style={{width:36,height:36,objectFit:'cover',borderRadius:6,border:'1px solid #ddd'}} />
+                      ) : (
+                        <span style={{width:36,height:36,display:'inline-block',background:'#eee',borderRadius:6}} />
+                      )}
+                      <span style={{maxWidth:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'inline-block'}}>{productName}</span>
+                    </div>
+                  </td>
+                  <td>{new Date(order.createdAt).toLocaleString()}</td>
+                  <td>{order.status}</td>
+                  <td>{order.totalTTC !== null && order.totalTTC !== undefined ? Number(order.totalTTC).toFixed(2) : 'N/A'} €</td>
+                  <td>
+                    <button className="btn btn-outline-primary btn-sm" onClick={() => navigate(`/commande/${order.id}`)}>
+                      Voir
+                    </button>
+                  </td>
+                  <td>
+                    <button className="btn btn-outline-success btn-sm" onClick={() => handleDownloadInvoice(order)}>
+                      Télécharger la facture
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {/* Pagination */}

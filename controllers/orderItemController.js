@@ -10,6 +10,7 @@ const Messages = require('../models/Messages');
 const User = require('../models/Users');
 const Category = require('../models/Category');
 const { Op } = require('sequelize');
+const sendMail = require('../utils/sendMail');
 
 // TVA alimentaire
 const TVA_RATE = 6.0;
@@ -133,6 +134,58 @@ const orderItemController = {
       order.totalTTC = totalTTC;
       order.shippingFees = shippingFees;
       await order.save();
+      // Après la mise à jour du stock, vérifier le seuil critique et envoyer une alerte email si besoin
+      for (const item of cart.CartItems) {
+        const product = item.Product;
+        // Décrémenter le stock AVANT de vérifier le seuil critique
+        product.quantity = Math.max(0, product.quantity - item.quantity);
+        await product.save();
+        // Log de debug pour vérifier les valeurs juste avant la condition
+        console.log('[DEBUG STOCK] Produit:', product.name, '| Stock après achat:', product.quantity, '| Seuil critique:', product.criticalThreshold);
+        if (product.quantity === 0) {
+          // Message spécial rupture de stock
+          const admin = await User.findOne({ where: { role: 'Admin' } });
+          if (admin && admin.id) {
+            try {
+              const msg = await Messages.create({
+                fromId: null,
+                toId: admin.id,
+                subject: `Rupture de stock : ${product.name}`,
+                body: `Le produit <strong>${product.name}</strong> est en rupture de stock (stock actuel : 0).`,
+                date: new Date(),
+                lu: false,
+                traite: false
+              });
+              console.log('[RUPTURE STOCK] Message créé avec succès, id:', msg.id);
+            } catch (err) {
+              console.error('[RUPTURE STOCK] Erreur lors de la création du message:', err);
+            }
+          } else {
+            console.warn('[RUPTURE STOCK] Aucun admin trouvé pour l’alerte rupture.');
+          }
+        } else if (product.quantity <= product.criticalThreshold) {
+          console.log('[CRITICAL STOCK] Tentative de création de message admin pour', product.name, 'stock:', product.quantity, 'seuil:', product.criticalThreshold);
+          const admin = await User.findOne({ where: { role: 'Admin' } });
+          if (admin && admin.id) {
+            try {
+              const msg = await Messages.create({
+                fromId: null,
+                toId: admin.id,
+                subject: `Alerte stock critique : ${product.name}`,
+                body: `Le stock du produit <strong>${product.name}</strong> est passé sous le seuil critique (${product.criticalThreshold}).<br>Stock actuel : <strong>${product.quantity}</strong>.`,
+                date: new Date(),
+                lu: false,
+                traite: false
+              });
+              console.log('[CRITICAL STOCK] Message créé avec succès, id:', msg.id);
+            } catch (err) {
+              console.error('[CRITICAL STOCK] Erreur lors de la création du message:', err);
+            }
+          } else {
+            console.warn('[CRITICAL STOCK] Aucun admin trouvé pour l’alerte stock.');
+          }
+        }
+      }
       res.status(201).json({ message: 'Commande créée avec succès', orderId: order.id });
     } catch (err) {
       res.status(500).json({ message: err.message });
